@@ -171,7 +171,7 @@ struct SettingsView: View {
 
     private var securitySection: some View {
         SettingsSection(title: "Security", systemImage: "checkmark.shield") {
-            Text("Tokens are stored in macOS Keychain with device-only accessibility. Configuration is stored in UserDefaults and never contains tokens. Public repository monitoring can request no OAuth scopes; private repositories require GitHub's `repo` OAuth scope.")
+            Text("GitHub tokens and the OAuth Client ID are stored in macOS Keychain with device-only accessibility. Configuration is stored in UserDefaults and never contains GitHub credentials. Public repository monitoring can request no OAuth scopes; private repositories require GitHub's `repo` OAuth scope.")
                 .foregroundStyle(.secondary)
             Text("License: Apache License 2.0. The app is provided as open source software without warranties.")
                 .foregroundStyle(.secondary)

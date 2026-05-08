@@ -37,7 +37,7 @@ final class AppModel {
     ) {
         self.configurationStore = configurationStore
         self.keychainStore = keychainStore
-        configuration = configurationStore.load()
+        configuration = AppModel.loadConfiguration(configurationStore: configurationStore, keychainStore: keychainStore)
         apiClient = GitHubAPIClient(tokenProvider: keychainStore)
         notificationService = NotificationService()
         monitor = WorkflowMonitor(apiClient: apiClient, notificationService: notificationService)
@@ -84,7 +84,18 @@ final class AppModel {
     }
 
     func saveConfiguration(_ next: AppConfiguration) {
-        configuration = next.normalized()
+        let normalized = next.normalized()
+        do {
+            if normalized.githubClientID.isEmpty {
+                try keychainStore.deleteClientID()
+            } else {
+                try keychainStore.saveClientID(normalized.githubClientID)
+            }
+        } catch {
+            lastErrorMessage = ErrorPresenter.message(for: error)
+            logger.error("Failed to update OAuth client ID in Keychain: \(lastErrorMessage ?? "unknown")")
+        }
+        configuration = normalized
         configurationStore.save(configuration)
         monitor.start(configuration: configuration) { [weak self] result in
             await self?.handleMonitorResult(result)
@@ -173,5 +184,24 @@ final class AppModel {
             onWorkflowEvent?(eventStatus)
         }
         onStatusChanged?(overallStatus)
+    }
+
+    private static func loadConfiguration(
+        configurationStore: any ConfigurationStore,
+        keychainStore: any KeychainStore
+    ) -> AppConfiguration {
+        var loaded = configurationStore.load().normalized()
+        if let keychainClientID = try? keychainStore.readClientID() {
+            loaded.githubClientID = keychainClientID.trimmingCharacters(in: .whitespacesAndNewlines)
+            return loaded
+        }
+
+        let migratedClientID = loaded.githubClientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !migratedClientID.isEmpty {
+            try? keychainStore.saveClientID(migratedClientID)
+            loaded.githubClientID = migratedClientID
+            configurationStore.save(loaded)
+        }
+        return loaded
     }
 }

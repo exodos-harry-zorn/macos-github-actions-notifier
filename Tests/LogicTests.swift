@@ -102,6 +102,9 @@ struct LogicTests {
         expect(config.recentRunsPerRepository == 20, "recent runs display count is clamped")
         expect(config.monitoredRepositories.first?.owner == "exodos", "owner is trimmed")
         expect(config.monitoredRepositories.first?.workflows.isEmpty == true, "repositories can monitor all workflows without workflow config")
+        let persistedConfigData = try! JSONEncoder().encode(config.sanitizedForPersistence())
+        let persistedConfigJSON = String(data: persistedConfigData, encoding: .utf8)!
+        expect(!persistedConfigJSON.contains("abc"), "persisted configuration does not contain OAuth client ID")
 
         let legacyConfigJSON = Data("""
         {

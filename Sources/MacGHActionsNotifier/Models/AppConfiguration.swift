@@ -61,6 +61,12 @@ struct AppConfiguration: Codable, Equatable {
         copy.monitoredRepositories = monitoredRepositories.map { $0.normalized() }.filter { !$0.owner.isEmpty && !$0.name.isEmpty }
         return copy
     }
+
+    func sanitizedForPersistence() -> AppConfiguration {
+        var copy = normalized()
+        copy.githubClientID = ""
+        return copy
+    }
 }
 
 struct MonitoredRepository: Codable, Identifiable, Hashable {

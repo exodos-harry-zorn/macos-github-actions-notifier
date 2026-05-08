@@ -24,7 +24,7 @@ final class UserDefaultsConfigurationStore: ConfigurationStore {
     }
 
     func save(_ configuration: AppConfiguration) {
-        guard let data = try? encoder.encode(configuration.normalized()) else { return }
+        guard let data = try? encoder.encode(configuration.sanitizedForPersistence()) else { return }
         defaults.set(data, forKey: key)
     }
 }

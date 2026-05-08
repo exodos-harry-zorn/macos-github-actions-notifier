@@ -9,7 +9,7 @@
 - `WorkflowMonitor` polls configured repositories and compares recent Actions runs against previous snapshots.
 - `GitHubAPIClient` lists repositories and calls GitHub's repository workflow-runs REST endpoint.
 - `GitHubDeviceAuthenticator` implements OAuth device flow.
-- `KeychainTokenStore` stores the GitHub access token.
+- `KeychainTokenStore` stores the GitHub access token and OAuth Client ID.
 - `UserDefaultsConfigurationStore` persists non-secret app configuration.
 
 ## Auth Flow
@@ -25,12 +25,13 @@ Public repository monitoring requests no scope. Private repository monitoring re
 Secrets:
 
 - GitHub access token is stored in macOS Keychain.
+- GitHub OAuth Client ID is also stored in macOS Keychain because it is user-entered authentication material.
 - The Keychain item uses service `com.exodoslabs.MacGHActionsNotifier`.
-- The token is never logged or written to config files.
+- Tokens and the OAuth Client ID are never logged or written to config files.
 
 Configuration:
 
-- OAuth client ID, monitored repositories, notification preferences, and polling interval are stored as JSON in UserDefaults.
+- Monitored repositories, notification preferences, polling interval, and display preferences are stored as JSON in UserDefaults.
 - Recent run display count is stored in UserDefaults and defaults to 5.
 - Polling interval is clamped to 60-900 seconds.
 

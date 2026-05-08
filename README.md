@@ -69,7 +69,7 @@ Public repositories can be monitored with no requested OAuth scopes.
 
 Private repositories require GitHub's classic OAuth `repo` scope because the GitHub Actions workflow-runs REST endpoint needs repository read access for private repositories. The settings screen makes this explicit before sign-in.
 
-Tokens are stored only in macOS Keychain under `com.exodoslabs.MacGHActionsNotifier`. Tokens are never written to UserDefaults, logs, or config files.
+GitHub tokens and the OAuth Client ID are stored only in macOS Keychain under `com.exodoslabs.MacGHActionsNotifier`. They are never written to UserDefaults, logs, or config files. Non-secret settings such as repositories, notification preferences, and polling interval are stored in UserDefaults.
 
 ## Configure Repositories
 
@@ -150,7 +150,7 @@ Screenshots are not committed yet because this repository was initialized headle
 ## Security Notes
 
 - GitHub authentication uses device flow, which avoids embedding a client secret in the native app.
-- Keychain items use `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`.
+- GitHub tokens and the OAuth Client ID are stored in Keychain using `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`.
 - Logout deletes the local Keychain token. To fully revoke access, revoke the OAuth App grant in GitHub account settings.
 - Logs use Apple's unified logging and never include tokens.
 - API requests use GitHub's current REST API version header.
