@@ -188,7 +188,7 @@ private struct RepositoryCard: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
-                Text(latestRun.map { "\($0.name) #\($0.runNumber) \($0.effectiveState.label) - \($0.branch)" } ?? "No run loaded yet")
+                Text(latestRun.map { "\($0.name) #\($0.runNumber) \($0.effectiveState.label) - \($0.branch) - \(TimestampFormatter.compact($0.updatedAt))" } ?? "No run loaded yet")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -249,6 +249,6 @@ private struct WorkflowRow: View {
 
     private var detail: String {
         guard let run else { return "No run loaded yet" }
-        return "#\(run.runNumber) \(run.effectiveState.label) - \(run.branch)"
+        return "#\(run.runNumber) \(run.effectiveState.label) - \(run.branch) - \(TimestampFormatter.compact(run.updatedAt))"
     }
 }

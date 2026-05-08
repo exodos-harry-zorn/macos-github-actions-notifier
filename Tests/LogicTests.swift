@@ -126,6 +126,11 @@ struct LogicTests {
         let repoKey = RepositoryWorkflowKey.repository(owner: "exodos", repository: "repo")
         expect(repoKey.workflowIdentifier == "all", "repository monitor key uses all workflow runs")
 
+        let now = Date(timeIntervalSince1970: 10_000)
+        expect(TimestampFormatter.compact(Date(timeIntervalSince1970: 9_970), now: now) == "just now", "timestamp formats seconds as just now")
+        expect(TimestampFormatter.compact(Date(timeIntervalSince1970: 9_700), now: now) == "5m ago", "timestamp formats minutes")
+        expect(TimestampFormatter.compact(Date(timeIntervalSince1970: 2_800), now: now) == "2h ago", "timestamp formats hours")
+
         print("Logic tests passed")
     }
 }

@@ -11,6 +11,7 @@ swiftc \
   Sources/MacGHActionsNotifier/Models/WorkflowRun.swift \
   Sources/MacGHActionsNotifier/Services/StatusAggregator.swift \
   Sources/MacGHActionsNotifier/Services/NotificationDecider.swift \
+  Sources/MacGHActionsNotifier/Support/TimestampFormatter.swift \
   Tests/LogicTests.swift \
   -o .build/test-products/logic-tests
 
