@@ -59,7 +59,7 @@ struct PopoverView: View {
             ScrollView {
                 LazyVStack(spacing: 12) {
                     ForEach(model.configuration.monitoredRepositories) { repository in
-                        RepositoryCard(repository: repository, runs: model.latestRuns)
+                        RepositoryCard(repository: repository, runs: model.recentRuns)
                     }
                 }
                 .padding(16)
@@ -115,14 +115,30 @@ struct PopoverView: View {
 
 private struct RepositoryCard: View {
     var repository: MonitoredRepository
-    var runs: [RepositoryWorkflowKey: WorkflowRun]
+    var runs: [RepositoryWorkflowKey: [WorkflowRun]]
+    @State private var isExpanded = false
+
+    private var repositoryRuns: [WorkflowRun] {
+        let key = RepositoryWorkflowKey.repository(owner: repository.owner, repository: repository.name)
+        return runs[key] ?? []
+    }
+
+    private var latestRun: WorkflowRun? {
+        repositoryRuns.first
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(repository.fullName)
-                    .font(.headline)
-                Spacer()
+            HStack(spacing: 10) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.16)) {
+                        isExpanded.toggle()
+                    }
+                } label: {
+                    repositoryHeader
+                }
+                .buttonStyle(.plain)
+
                 Button {
                     NSWorkspace.shared.open(URL(string: "https://github.com/\(repository.fullName)/actions")!)
                 } label: {
@@ -132,8 +148,21 @@ private struct RepositoryCard: View {
                 .help("Open Actions in GitHub")
             }
 
-            let key = RepositoryWorkflowKey.repository(owner: repository.owner, repository: repository.name)
-            WorkflowRow(run: runs[key])
+            if isExpanded {
+                Divider()
+                if repositoryRuns.isEmpty {
+                    Text("No workflow runs loaded yet.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    VStack(spacing: 10) {
+                        ForEach(repositoryRuns) { run in
+                            WorkflowRow(run: run)
+                        }
+                    }
+                }
+            }
         }
         .padding(14)
         .background(Design.card)
@@ -142,6 +171,39 @@ private struct RepositoryCard: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(Design.border, lineWidth: 1)
         )
+    }
+
+    private var repositoryHeader: some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(statusColor(for: latestRun))
+                .frame(width: 9, height: 9)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(repository.fullName)
+                        .font(.headline)
+                        .lineLimit(1)
+                    Spacer()
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                Text(latestRun.map { "\($0.name) #\($0.runNumber) \($0.effectiveState.label) - \($0.branch)" } ?? "No run loaded yet")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private func statusColor(for run: WorkflowRun?) -> Color {
+        switch run?.effectiveState {
+        case .running: Design.blue
+        case .succeeded: Design.green
+        case .failed, .cancelled: Design.red
+        case .problem: Design.orange
+        case nil: .secondary
+        }
     }
 }
 
@@ -167,7 +229,7 @@ private struct WorkflowRow: View {
                 Button {
                     NSWorkspace.shared.open(url)
                 } label: {
-                    Image(systemName: "safari")
+                    Image(systemName: "arrow.up.right.circle")
                 }
                 .buttonStyle(.borderless)
                 .help("Open run")

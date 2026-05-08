@@ -45,4 +45,13 @@ enum AppStatus: String, Codable, Equatable {
         case .problem: NSColor.systemOrange
         }
     }
+
+    static func workflowEventStatus(for state: WorkflowEffectiveState) -> AppStatus {
+        switch state {
+        case .running: .running
+        case .succeeded: .success
+        case .failed, .cancelled: .failed
+        case .problem: .problem
+        }
+    }
 }

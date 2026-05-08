@@ -160,6 +160,9 @@ struct SettingsView: View {
             Stepper(value: $draft.pollingIntervalSeconds, in: 60...900, step: 30) {
                 Text("Poll every \(Int(draft.pollingIntervalSeconds)) seconds")
             }
+            Stepper(value: $draft.recentRunsPerRepository, in: 1...20, step: 1) {
+                Text("Show \(draft.recentRunsPerRepository) recent run\(draft.recentRunsPerRepository == 1 ? "" : "s") per repository")
+            }
             Text("The app keeps polling conservative to respect GitHub rate limits and avoid noisy background behavior.")
                 .foregroundStyle(.secondary)
                 .font(.callout)

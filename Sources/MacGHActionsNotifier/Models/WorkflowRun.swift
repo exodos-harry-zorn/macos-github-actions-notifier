@@ -16,7 +16,11 @@ struct RepositoryWorkflowKey: Codable, Hashable, Identifiable {
 
 struct WorkflowSnapshot: Equatable {
     var key: RepositoryWorkflowKey
-    var run: WorkflowRun
+    var runs: [WorkflowRun]
+
+    var run: WorkflowRun? {
+        runs.first
+    }
 }
 
 struct WorkflowRun: Codable, Equatable, Identifiable {

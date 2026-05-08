@@ -14,6 +14,7 @@ final class AppModel {
 
     var configuration: AppConfiguration
     var latestRuns: [RepositoryWorkflowKey: WorkflowRun] = [:]
+    var recentRuns: [RepositoryWorkflowKey: [WorkflowRun]] = [:]
     var lastErrorMessage: String?
     var isRefreshing = false
     var isAuthenticated = false
@@ -22,6 +23,7 @@ final class AppModel {
     var isLoadingRepositories = false
     var repositoryLoadMessage: String?
     var onStatusChanged: ((AppStatus) -> Void)?
+    var onWorkflowEvent: ((AppStatus) -> Void)?
 
     var overallStatus: AppStatus {
         if lastErrorMessage != nil { return .problem }
@@ -65,10 +67,16 @@ final class AppModel {
         }
 
         do {
-            let runs = try await monitor.refresh(configuration: configuration)
-            latestRuns = Dictionary(uniqueKeysWithValues: runs.map { ($0.key, $0.run) })
+            let snapshots = try await monitor.refresh(configuration: configuration)
+            latestRuns = Dictionary(uniqueKeysWithValues: snapshots.compactMap { snapshot in
+                snapshot.run.map { (snapshot.key, $0) }
+            })
+            recentRuns = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.key, $0.runs) })
             lastErrorMessage = nil
             isAuthenticated = (try? keychainStore.readToken()) != nil
+            if let eventStatus = monitor.consumeLastEventStatus() {
+                onWorkflowEvent?(eventStatus)
+            }
         } catch {
             lastErrorMessage = ErrorPresenter.message(for: error)
             logger.error("Refresh failed: \(lastErrorMessage ?? "unknown")")
@@ -123,6 +131,7 @@ final class AppModel {
             try keychainStore.deleteToken()
             isAuthenticated = false
             latestRuns = [:]
+            recentRuns = [:]
             lastErrorMessage = nil
             onStatusChanged?(overallStatus)
         } catch {
@@ -155,8 +164,14 @@ final class AppModel {
 
     private func handleMonitorResult(_ result: WorkflowMonitorResult) async {
         latestRuns = result.latestRuns
+        if !result.recentRuns.isEmpty {
+            recentRuns = result.recentRuns
+        }
         lastErrorMessage = result.errorMessage
         isAuthenticated = (try? keychainStore.readToken()) != nil
+        if let eventStatus = result.eventStatus {
+            onWorkflowEvent?(eventStatus)
+        }
         onStatusChanged?(overallStatus)
     }
 }

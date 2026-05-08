@@ -6,13 +6,50 @@ struct AppConfiguration: Codable, Equatable {
     var monitoredRepositories: [MonitoredRepository]
     var notificationPreferences: NotificationPreferences
     var pollingIntervalSeconds: TimeInterval
+    var recentRunsPerRepository: Int
+
+    init(
+        githubClientID: String,
+        defaultOwner: String,
+        monitoredRepositories: [MonitoredRepository],
+        notificationPreferences: NotificationPreferences,
+        pollingIntervalSeconds: TimeInterval,
+        recentRunsPerRepository: Int = 5
+    ) {
+        self.githubClientID = githubClientID
+        self.defaultOwner = defaultOwner
+        self.monitoredRepositories = monitoredRepositories
+        self.notificationPreferences = notificationPreferences
+        self.pollingIntervalSeconds = pollingIntervalSeconds
+        self.recentRunsPerRepository = recentRunsPerRepository
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case githubClientID
+        case defaultOwner
+        case monitoredRepositories
+        case notificationPreferences
+        case pollingIntervalSeconds
+        case recentRunsPerRepository
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        githubClientID = try container.decodeIfPresent(String.self, forKey: .githubClientID) ?? ""
+        defaultOwner = try container.decodeIfPresent(String.self, forKey: .defaultOwner) ?? ""
+        monitoredRepositories = try container.decodeIfPresent([MonitoredRepository].self, forKey: .monitoredRepositories) ?? []
+        notificationPreferences = try container.decodeIfPresent(NotificationPreferences.self, forKey: .notificationPreferences) ?? .default
+        pollingIntervalSeconds = try container.decodeIfPresent(TimeInterval.self, forKey: .pollingIntervalSeconds) ?? 180
+        recentRunsPerRepository = try container.decodeIfPresent(Int.self, forKey: .recentRunsPerRepository) ?? 5
+    }
 
     static let `default` = AppConfiguration(
         githubClientID: "",
         defaultOwner: "",
         monitoredRepositories: [],
         notificationPreferences: .default,
-        pollingIntervalSeconds: 180
+        pollingIntervalSeconds: 180,
+        recentRunsPerRepository: 5
     )
 
     func normalized() -> AppConfiguration {
@@ -20,6 +57,7 @@ struct AppConfiguration: Codable, Equatable {
         copy.githubClientID = githubClientID.trimmingCharacters(in: .whitespacesAndNewlines)
         copy.defaultOwner = defaultOwner.trimmingCharacters(in: .whitespacesAndNewlines)
         copy.pollingIntervalSeconds = max(60, min(900, pollingIntervalSeconds))
+        copy.recentRunsPerRepository = max(1, min(20, recentRunsPerRepository))
         copy.monitoredRepositories = monitoredRepositories.map { $0.normalized() }.filter { !$0.owner.isEmpty && !$0.name.isEmpty }
         return copy
     }

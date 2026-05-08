@@ -93,13 +93,32 @@ struct LogicTests {
                 MonitoredRepository(owner: " exodos ", name: " repo ", workflows: [])
             ],
             notificationPreferences: .default,
-            pollingIntervalSeconds: 10
+            pollingIntervalSeconds: 10,
+            recentRunsPerRepository: 50
         ).normalized()
         expect(config.githubClientID == "abc", "client ID is trimmed")
         expect(config.defaultOwner == "org", "default owner is trimmed")
         expect(config.pollingIntervalSeconds == 60, "polling interval is clamped")
+        expect(config.recentRunsPerRepository == 20, "recent runs display count is clamped")
         expect(config.monitoredRepositories.first?.owner == "exodos", "owner is trimmed")
         expect(config.monitoredRepositories.first?.workflows.isEmpty == true, "repositories can monitor all workflows without workflow config")
+
+        let legacyConfigJSON = Data("""
+        {
+          "githubClientID": "client",
+          "defaultOwner": "exodos",
+          "monitoredRepositories": [],
+          "notificationPreferences": {
+            "notifyOnStarted": true,
+            "notifyOnSucceeded": true,
+            "notifyOnFailed": true,
+            "notifyOnCancelled": true
+          },
+          "pollingIntervalSeconds": 180
+        }
+        """.utf8)
+        let decodedLegacyConfig = try! JSONDecoder().decode(AppConfiguration.self, from: legacyConfigJSON)
+        expect(decodedLegacyConfig.recentRunsPerRepository == 5, "legacy config defaults recent runs display count")
 
         let repoKey = RepositoryWorkflowKey.repository(owner: "exodos", repository: "repo")
         expect(repoKey.workflowIdentifier == "all", "repository monitor key uses all workflow runs")

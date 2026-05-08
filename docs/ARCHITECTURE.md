@@ -31,6 +31,7 @@ Secrets:
 Configuration:
 
 - OAuth client ID, monitored repositories, notification preferences, and polling interval are stored as JSON in UserDefaults.
+- Recent run display count is stored in UserDefaults and defaults to 5.
 - Polling interval is clamped to 60-900 seconds.
 
 ## GitHub API Usage
@@ -53,7 +54,7 @@ Errors are converted into user-facing status messages. `401` asks the user to si
 
 ## Notification Logic
 
-The monitor keeps the latest displayed run for each repository and a previous-state snapshot for recent workflow run IDs. A notification is emitted only when a run appears or changes state after the repository has already been observed once.
+The monitor keeps recent displayed runs for each repository and a previous-state snapshot for recent workflow run IDs. A notification is emitted only when a run appears or changes state after the repository has already been observed once. The menu bar shows the event status for 60 seconds, then returns to the app logo with an unread red dot until the user opens the popover.
 
 Effective states are:
 
