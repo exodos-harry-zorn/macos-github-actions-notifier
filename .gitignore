@@ -1,0 +1,6 @@
+.build/
+dist/
+.DS_Store
+Package.resolved
+*.xcuserstate
+DerivedData/
