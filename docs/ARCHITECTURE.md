@@ -6,7 +6,7 @@
 - `StatusBarController` owns the `NSStatusItem`, renders status icons, and hosts the SwiftUI popover.
 - `AppModel` coordinates configuration, authentication, polling, notification state, and UI state.
 - `PopoverView` and `SettingsView` provide the compact monitoring surface and onboarding/settings experience.
-- `WorkflowMonitor` polls configured workflows and compares the latest runs against previous snapshots.
+- `WorkflowMonitor` polls configured repositories and compares recent Actions runs against previous snapshots.
 - `GitHubAPIClient` lists repositories and calls GitHub's repository workflow-runs REST endpoint.
 - `GitHubDeviceAuthenticator` implements OAuth device flow.
 - `KeychainTokenStore` stores the GitHub access token.
@@ -30,7 +30,7 @@ Secrets:
 
 Configuration:
 
-- OAuth client ID, monitored repositories, workflow identifiers, notification preferences, and polling interval are stored as JSON in UserDefaults.
+- OAuth client ID, monitored repositories, notification preferences, and polling interval are stored as JSON in UserDefaults.
 - Polling interval is clamped to 60-900 seconds.
 
 ## GitHub API Usage
@@ -49,7 +49,7 @@ The app sends:
 - `Accept: application/vnd.github+json`
 - `X-GitHub-Api-Version: 2022-11-28`
 
-Errors are converted into user-facing status messages. `401` asks the user to sign in again, `403` distinguishes rate limits when possible, and `404` points to repository/workflow configuration issues.
+Errors are converted into user-facing status messages. `401` asks the user to sign in again, `403` distinguishes rate limits when possible, and `404` points to account or repository configuration issues.
 
 ## Notification Logic
 

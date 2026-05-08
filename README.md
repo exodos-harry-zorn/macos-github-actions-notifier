@@ -19,25 +19,48 @@ The app is built with Swift, SwiftUI, and AppKit menu bar integration. It stores
 ## Requirements
 
 - macOS 14 or newer. The project builds cleanly with current Apple Swift command line tools targeting macOS 26.
-- Swift 6 toolchain.
 - A GitHub OAuth App client ID with Device Flow enabled.
+- Swift 6 toolchain only if you are building from source.
+
+## Install
+
+1. Open the latest GitHub release.
+2. Download `GitHub-Actions-Notifier-<version>.dmg`.
+3. Open the DMG.
+4. Drag **GitHub Actions Notifier** into **Applications**.
+5. Launch the app. It appears in the macOS menu bar, not in the Dock.
+
+Current development builds are ad-hoc signed and not notarized. macOS may show a Gatekeeper warning the first time you open the downloaded app. See `docs/RELEASE.md` for the signing and notarization plan.
 
 ## GitHub Authentication Setup
 
-Create a GitHub OAuth App in GitHub Developer Settings:
+First create a GitHub OAuth App:
 
-1. Set the app name to something recognizable, such as `GitHub Actions Notifier`.
-2. Use any valid homepage URL controlled by you.
-3. Enable Device Flow for the OAuth App.
-4. Copy the OAuth App client ID.
-5. Paste the client ID into the app settings.
+1. Go to GitHub.
+2. Click your profile photo.
+3. Click **Settings**.
+4. Scroll down and click **Developer settings**.
+5. Click **OAuth Apps**.
+6. Click **New OAuth App**.
+7. Fill in the app details:
+   - **Application name:** `MacOS GitHub Actions Notifier` or another name you recognize.
+   - **Homepage URL:** use your real app/site URL, or this GitHub repository URL.
+   - **Authorization callback URL:** any valid URL is fine for device flow, for example the same URL as the homepage.
+8. Check **Enable Device Flow**.
+9. Click **Register application**.
+10. Copy the **Client ID**.
+11. Open GitHub Actions Notifier settings.
+12. Paste the Client ID into the app settings.
 
-The app uses GitHub's device flow:
+Then sign in inside the app:
 
 1. Click **Sign in with GitHub**.
-2. The app opens GitHub's device authorization page.
-3. Enter the shown user code in the browser.
-4. Return to the app and click **I authorized in browser**.
+2. GitHub should show a short code.
+3. Open the GitHub device page, usually [https://github.com/login/device](https://github.com/login/device).
+4. Enter the code.
+5. Approve the app.
+6. Go back to GitHub Actions Notifier.
+7. Click **I authorized in browser**.
 
 ## Required Scopes
 
@@ -52,11 +75,14 @@ Tokens are stored only in macOS Keychain under `com.exodoslabs.MacGHActionsNotif
 Open settings from the menu bar popover:
 
 1. Sign in with GitHub.
-2. Enter the GitHub account or organization.
+2. Enter the GitHub account or organization, for example `exodos-labs`.
 3. Click **Load repositories**.
-4. Choose a repository from the dropdown and add it to monitoring.
-5. Choose notification preferences.
-6. Choose a polling interval between 60 and 900 seconds.
+4. Choose a repository from the dropdown.
+5. Click **Monitor selected repository**.
+6. Repeat for every repository you want to watch.
+7. Choose notification preferences.
+8. Choose a polling interval between 60 and 900 seconds.
+9. Click **Done**.
 
 Each selected repository monitors all GitHub Actions workflow runs. You do not need to configure `ci.yml` files or individual workflows.
 

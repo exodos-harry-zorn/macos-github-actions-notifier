@@ -2,6 +2,14 @@
 
 This project currently produces an ad-hoc signed app bundle and DMG. A GitHub release is created by the **Release DMG** workflow when a `v*` tag is pushed, or when the workflow is run manually.
 
+After publishing a release, make sure the release notes point users to the README setup flow:
+
+1. Create a GitHub OAuth App.
+2. Enable Device Flow.
+3. Copy the Client ID into app settings.
+4. Sign in with the GitHub device code.
+5. Load repositories and add them from the dropdown.
+
 Create a release from a local checkout:
 
 ```bash
