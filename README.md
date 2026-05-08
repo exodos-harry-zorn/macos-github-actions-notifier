@@ -90,6 +90,14 @@ open "dist/GitHub Actions Notifier.app"
 
 The app is configured as `LSUIElement`, so it appears only in the menu bar and not in the Dock.
 
+Or run the full local verification path:
+
+```bash
+make verify
+```
+
+The repository also includes a GitHub Actions workflow that runs tests, builds the release executable, packages the `.app`, validates bundle metadata, and uploads the bundle as a CI artifact.
+
 ## Screenshots
 
 Screenshots are not committed yet because this repository was initialized headlessly. See `docs/SCREENSHOTS.md` for the intended capture checklist.
@@ -101,6 +109,7 @@ Screenshots are not committed yet because this repository was initialized headle
 - Logout deletes the local Keychain token. To fully revoke access, revoke the OAuth App grant in GitHub account settings.
 - Logs use Apple's unified logging and never include tokens.
 - API requests use GitHub's current REST API version header.
+- Local development bundles are ad-hoc signed. See `docs/RELEASE.md` for Developer ID signing and notarization steps.
 
 ## References
 
