@@ -88,6 +88,12 @@ Build a macOS app bundle:
 open "dist/GitHub Actions Notifier.app"
 ```
 
+Build a local DMG:
+
+```bash
+make dmg
+```
+
 The app is configured as `LSUIElement`, so it appears only in the menu bar and not in the Dock.
 
 Or run the full local verification path:
@@ -97,6 +103,8 @@ make verify
 ```
 
 The repository also includes a GitHub Actions workflow that runs tests, builds the release executable, packages the `.app`, validates bundle metadata, and uploads the bundle as a CI artifact.
+
+Release DMGs are built by GitHub Actions when a `v*` tag is pushed, or by manually running the **Release DMG** workflow. The workflow uploads `GitHub-Actions-Notifier-<version>.dmg` and its SHA-256 checksum to the GitHub release.
 
 ## Screenshots
 

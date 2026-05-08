@@ -1,0 +1,135 @@
+name: Release DMG
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, for example v0.1.0"
+        required: true
+        default: "v0.1.0"
+        type: string
+      prerelease:
+        description: "Mark the GitHub release as a prerelease"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish DMG
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release metadata
+        id: meta
+        shell: bash
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+            PRERELEASE="${{ inputs.prerelease }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+            PRERELEASE="false"
+          fi
+
+          VERSION="${TAG#v}"
+          if [[ -z "$VERSION" || "$VERSION" == "$TAG" ]]; then
+            echo "Tag must start with v, for example v0.1.0" >&2
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure manual tag exists
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          TAG="${{ steps.meta.outputs.tag }}"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag "$TAG" "$GITHUB_SHA"
+            git push origin "$TAG"
+          fi
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Run logic tests
+        run: ./scripts/test.sh
+
+      - name: Build app bundle
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: ./scripts/build-app.sh
+
+      - name: Create DMG
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: ./scripts/create-dmg.sh
+
+      - name: Write release notes
+        shell: bash
+        run: |
+          TAG="${{ steps.meta.outputs.tag }}"
+          VERSION="${{ steps.meta.outputs.version }}"
+          DMG="GitHub-Actions-Notifier-${VERSION}.dmg"
+          SHA="$(cut -d ' ' -f 1 "dist/${DMG}.sha256")"
+          cat > dist/release-notes.md <<EOF
+          ## GitHub Actions Notifier ${TAG}
+
+          Native macOS menu bar app for monitoring selected GitHub Actions workflows.
+
+          ### Asset
+
+          - ${DMG}
+          - SHA-256: \`${SHA}\`
+
+          ### Signing note
+
+          This build is ad-hoc signed and not notarized yet. macOS Gatekeeper may warn when opening a downloaded copy. See \`docs/RELEASE.md\` for the Developer ID signing and notarization checklist.
+          EOF
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          TAG="${{ steps.meta.outputs.tag }}"
+          VERSION="${{ steps.meta.outputs.version }}"
+          DMG="dist/GitHub-Actions-Notifier-${VERSION}.dmg"
+          SHA="dist/GitHub-Actions-Notifier-${VERSION}.dmg.sha256"
+          PRERELEASE="${{ steps.meta.outputs.prerelease }}"
+
+          FLAGS=()
+          if [[ "$PRERELEASE" == "true" ]]; then
+            FLAGS+=(--prerelease)
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$DMG" "$SHA" --clobber
+            gh release edit "$TAG" --title "GitHub Actions Notifier $TAG" --notes-file dist/release-notes.md "${FLAGS[@]}"
+          else
+            gh release create "$TAG" "$DMG" "$SHA" --title "GitHub Actions Notifier $TAG" --notes-file dist/release-notes.md "${FLAGS[@]}"
+          fi
