@@ -7,6 +7,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let appModel = AppModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if let icon = NSImage(named: "AppIcon") {
+            NSApplication.shared.applicationIconImage = icon
+        }
         statusController = StatusBarController(appModel: appModel)
         appModel.start()
     }

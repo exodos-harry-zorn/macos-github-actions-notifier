@@ -10,6 +10,29 @@ enum Design {
     static let orange = Color(red: 0.93, green: 0.50, blue: 0.12)
 }
 
+struct AppLogoView: View {
+    var size: CGFloat
+
+    var body: some View {
+        Group {
+            if let image = NSImage(named: "AppIcon") {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+            } else {
+                Image(systemName: "shield.lefthalf.filled.badge.checkmark")
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(Design.green)
+                    .padding(size * 0.18)
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
+        .accessibilityLabel("GitHub Actions Notifier logo")
+    }
+}
+
 extension AppStatus {
     var accent: Color {
         switch self {

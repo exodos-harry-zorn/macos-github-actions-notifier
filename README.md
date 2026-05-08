@@ -1,5 +1,7 @@
 # GitHub Actions Notifier for macOS
 
+![GitHub Actions Notifier logo](assets/AppIcon.png)
+
 A small native macOS menu bar app that watches selected GitHub Actions workflows and only interrupts you when a workflow meaningfully changes state.
 
 The app is built with Swift, SwiftUI, and AppKit menu bar integration. It stores GitHub tokens in macOS Keychain, keeps configuration separate from secrets, and polls conservatively so it behaves like a calm background assistant instead of another noisy dashboard.

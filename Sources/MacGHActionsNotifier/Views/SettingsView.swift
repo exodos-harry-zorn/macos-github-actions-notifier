@@ -14,6 +14,7 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
+                AppLogoView(size: 48)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("GitHub Actions Notifier")
                         .font(.title2.weight(.semibold))

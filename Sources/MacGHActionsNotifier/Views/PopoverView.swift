@@ -69,9 +69,7 @@ struct PopoverView: View {
 
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "shield.lefthalf.filled.badge.checkmark")
-                .font(.system(size: 46, weight: .regular))
-                .foregroundStyle(Design.green)
+            AppLogoView(size: 72)
             Text("Ready to watch your builds")
                 .font(.title3.weight(.semibold))
             Text("Configure the repositories and workflow files you care about. The app will stay quiet until state changes matter.")
