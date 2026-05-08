@@ -7,7 +7,7 @@
 - `AppModel` coordinates configuration, authentication, polling, notification state, and UI state.
 - `PopoverView` and `SettingsView` provide the compact monitoring surface and onboarding/settings experience.
 - `WorkflowMonitor` polls configured workflows and compares the latest runs against previous snapshots.
-- `GitHubAPIClient` calls GitHub's workflow-runs REST endpoints.
+- `GitHubAPIClient` lists repositories and calls GitHub's repository workflow-runs REST endpoint.
 - `GitHubDeviceAuthenticator` implements OAuth device flow.
 - `KeychainTokenStore` stores the GitHub access token.
 - `UserDefaultsConfigurationStore` persists non-secret app configuration.
@@ -35,10 +35,12 @@ Configuration:
 
 ## GitHub API Usage
 
-For each configured workflow, the app calls:
+The settings screen lists repositories for the configured account or organization through GitHub's repositories REST API. Organization repositories use `/orgs/{org}/repos`; when the configured owner matches the authenticated user, personal repositories use `/user/repos` so private owned repositories can appear with the `repo` scope.
+
+For each configured repository, the monitor calls:
 
 ```text
-GET /repos/{owner}/{repo}/actions/workflows/{workflow_id_or_file}/runs?per_page=1
+GET /repos/{owner}/{repo}/actions/runs?per_page=20
 ```
 
 The app sends:
@@ -51,7 +53,7 @@ Errors are converted into user-facing status messages. `401` asks the user to si
 
 ## Notification Logic
 
-The monitor keeps the previous latest run for each repository/workflow key. A notification is emitted only when the latest run ID changes or the same run changes effective state.
+The monitor keeps the latest displayed run for each repository and a previous-state snapshot for recent workflow run IDs. A notification is emitted only when a run appears or changes state after the repository has already been observed once.
 
 Effective states are:
 

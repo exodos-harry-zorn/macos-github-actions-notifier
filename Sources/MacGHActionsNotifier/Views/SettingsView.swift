@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Bindable var model: AppModel
     @State private var draft: AppConfiguration
     @State private var privateRepoAccess = false
+    @State private var selectedRepositoryID: Int64?
 
     init(model: AppModel) {
         self.model = model
@@ -18,7 +19,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("GitHub Actions Notifier")
                         .font(.title2.weight(.semibold))
-                    Text("Securely watch selected workflows without keeping browser tabs open.")
+                    Text("Securely watch selected repositories without keeping Actions tabs open.")
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -93,17 +94,54 @@ struct SettingsView: View {
 
     private var repositoriesSection: some View {
         SettingsSection(title: "Repositories", systemImage: "shippingbox") {
-            ForEach($draft.monitoredRepositories) { $repository in
-                RepositoryEditor(repository: $repository) {
-                    draft.monitoredRepositories.removeAll { $0.id == repository.id }
+            HStack {
+                Button {
+                    model.saveConfiguration(draft)
+                    Task { await model.loadAvailableRepositories(owner: draft.defaultOwner) }
+                } label: {
+                    Label(model.isLoadingRepositories ? "Loading" : "Load repositories", systemImage: "arrow.clockwise")
+                }
+                .disabled(model.isLoadingRepositories || !model.isAuthenticated)
+
+                if !model.isAuthenticated {
+                    Text("Sign in first to load repositories.")
+                        .foregroundStyle(.secondary)
                 }
             }
+
+            Picker("Repository", selection: $selectedRepositoryID) {
+                Text("Choose a repository").tag(Int64?.none)
+                ForEach(model.availableRepositories) { repository in
+                    Text(repositoryLabel(repository))
+                        .tag(Int64?.some(repository.id))
+                }
+            }
+            .pickerStyle(.menu)
+            .disabled(model.availableRepositories.isEmpty)
+
             Button {
-                draft.monitoredRepositories.append(MonitoredRepository(owner: draft.defaultOwner, name: "", workflows: [
-                    MonitoredWorkflow(identifier: "ci.yml", displayName: "CI")
-                ]))
+                addSelectedRepository()
             } label: {
-                Label("Add Repository", systemImage: "plus")
+                Label("Monitor selected repository", systemImage: "plus")
+            }
+            .disabled(selectedRepositoryID == nil)
+
+            if let message = model.repositoryLoadMessage {
+                Text(message)
+                    .foregroundStyle(Design.orange)
+            }
+
+            if draft.monitoredRepositories.isEmpty {
+                Text("Selected repositories will monitor all GitHub Actions runs. No workflow file configuration is needed.")
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(draft.monitoredRepositories) { repository in
+                        SelectedRepositoryRow(repository: repository) {
+                            draft.monitoredRepositories.removeAll { $0.id == repository.id }
+                        }
+                    }
+                }
             }
         }
     }
@@ -134,47 +172,50 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
         }
     }
+
+    private func repositoryLabel(_ repository: GitHubRepository) -> String {
+        repository.isPrivate ? "\(repository.fullName) (private)" : repository.fullName
+    }
+
+    private func addSelectedRepository() {
+        guard let selectedRepositoryID,
+              let repository = model.availableRepositories.first(where: { $0.id == selectedRepositoryID }) else {
+            return
+        }
+        let parts = repository.fullName.split(separator: "/", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return }
+        guard !draft.monitoredRepositories.contains(where: { $0.owner == parts[0] && $0.name == parts[1] }) else {
+            return
+        }
+        draft.monitoredRepositories.append(MonitoredRepository(owner: parts[0], name: parts[1], workflows: []))
+        self.selectedRepositoryID = nil
+    }
 }
 
-private struct RepositoryEditor: View {
-    @Binding var repository: MonitoredRepository
+private struct SelectedRepositoryRow: View {
+    var repository: MonitoredRepository
     var onDelete: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                TextField("Owner or organization", text: $repository.owner)
-                    .textFieldStyle(.roundedBorder)
-                TextField("Repository", text: $repository.name)
-                    .textFieldStyle(.roundedBorder)
-                Button(role: .destructive, action: onDelete) {
-                    Image(systemName: "trash")
-                }
-                .buttonStyle(.borderless)
-            }
-            ForEach($repository.workflows) { $workflow in
-                HStack {
-                    TextField("Workflow file or ID, e.g. ci.yml", text: $workflow.identifier)
-                        .textFieldStyle(.roundedBorder)
-                    TextField("Display name", text: $workflow.displayName)
-                        .textFieldStyle(.roundedBorder)
-                    Toggle("Deploy", isOn: $workflow.deploymentRelated)
-                    Button(role: .destructive) {
-                        repository.workflows.removeAll { $0.id == workflow.id }
-                    } label: {
-                        Image(systemName: "minus.circle")
-                    }
-                    .buttonStyle(.borderless)
-                }
-            }
-            Button {
-                repository.workflows.append(MonitoredWorkflow(identifier: "", displayName: ""))
-            } label: {
-                Label("Add Workflow", systemImage: "plus.circle")
+        HStack(spacing: 10) {
+            Image(systemName: "shippingbox")
+                .foregroundStyle(Design.green)
+            Text(repository.fullName)
+                .font(.subheadline.weight(.medium))
+            Spacer()
+            Text("All Actions")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Design.blue)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(Design.blue.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            Button(role: .destructive, action: onDelete) {
+                Image(systemName: "trash")
             }
             .buttonStyle(.borderless)
         }
-        .padding(14)
+        .padding(10)
         .background(Design.card)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }

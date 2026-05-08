@@ -47,7 +47,7 @@ struct PopoverView: View {
     private var subtitle: String {
         if let error = model.lastErrorMessage { return error }
         let count = model.configuration.monitoredRepositories.count
-        if count == 0 { return "Add repositories and workflows to start monitoring." }
+        if count == 0 { return "Add repositories to monitor all GitHub Actions activity." }
         return "Monitoring \(count) repositor\(count == 1 ? "y" : "ies") quietly in the background."
     }
 
@@ -72,7 +72,7 @@ struct PopoverView: View {
             AppLogoView(size: 72)
             Text("Ready to watch your builds")
                 .font(.title3.weight(.semibold))
-            Text("Configure the repositories and workflow files you care about. The app will stay quiet until state changes matter.")
+            Text("Choose the repositories you care about. Every Actions run in those repositories will be monitored quietly.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: 300)
@@ -132,10 +132,8 @@ private struct RepositoryCard: View {
                 .help("Open Actions in GitHub")
             }
 
-            ForEach(repository.workflows) { workflow in
-                let key = RepositoryWorkflowKey(owner: repository.owner, repository: repository.name, workflowIdentifier: workflow.identifier)
-                WorkflowRow(workflow: workflow, run: runs[key])
-            }
+            let key = RepositoryWorkflowKey.repository(owner: repository.owner, repository: repository.name)
+            WorkflowRow(run: runs[key])
         }
         .padding(14)
         .background(Design.card)
@@ -148,7 +146,6 @@ private struct RepositoryCard: View {
 }
 
 private struct WorkflowRow: View {
-    var workflow: MonitoredWorkflow
     var run: WorkflowRun?
 
     var body: some View {
@@ -157,24 +154,13 @@ private struct WorkflowRow: View {
                 .fill(color)
                 .frame(width: 9, height: 9)
             VStack(alignment: .leading, spacing: 2) {
-                Text(workflow.displayName.isEmpty ? workflow.identifier : workflow.displayName)
+                Text(run?.name ?? "All Actions")
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
-                HStack(spacing: 6) {
-                    Text(detail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    if workflow.deploymentRelated {
-                        Text("Deploy")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(Design.green)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(Design.green.opacity(0.12))
-                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                    }
-                }
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
             Spacer()
             if let url = run?.htmlURL {

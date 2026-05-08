@@ -5,8 +5,8 @@ This project currently produces an ad-hoc signed app bundle and DMG. A GitHub re
 Create a release from a local checkout:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 Local DMG verification:

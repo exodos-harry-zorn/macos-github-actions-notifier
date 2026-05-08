@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="GitHub Actions Notifier"
 APP_PATH="${APP_PATH:-$ROOT_DIR/dist/$APP_NAME.app}"
-VERSION="${VERSION:-$(git -C "$ROOT_DIR" describe --tags --always --dirty 2>/dev/null | sed 's/^v//')}"
+VERSION="${VERSION:-$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$ROOT_DIR/Packaging/Info.plist")}"
 DMG_NAME="GitHub-Actions-Notifier-${VERSION}.dmg"
 STAGING_DIR="$ROOT_DIR/.build/dmg-staging"
 DIST_DIR="$ROOT_DIR/dist"

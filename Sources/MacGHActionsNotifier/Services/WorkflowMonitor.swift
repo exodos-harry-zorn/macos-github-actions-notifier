@@ -10,6 +10,8 @@ final class WorkflowMonitor: @unchecked Sendable {
     private let notificationService: NotificationService
     private var task: Task<Void, Never>?
     private var previousRuns: [RepositoryWorkflowKey: WorkflowRun] = [:]
+    private var previousRunStates: [String: WorkflowRun] = [:]
+    private var primedRepositories: Set<RepositoryWorkflowKey> = []
 
     init(apiClient: GitHubAPIClient, notificationService: NotificationService) {
         self.apiClient = apiClient
@@ -52,21 +54,28 @@ final class WorkflowMonitor: @unchecked Sendable {
         var snapshots: [WorkflowSnapshot] = []
 
         for repository in normalized.monitoredRepositories {
-            for workflow in repository.workflows {
-                let key = RepositoryWorkflowKey(owner: repository.owner, repository: repository.name, workflowIdentifier: workflow.identifier)
-                if let run = try await apiClient.latestRun(owner: repository.owner, repository: repository.name, workflow: workflow) {
-                    if let notification = NotificationDecider.notification(
-                        previous: previousRuns[key],
-                        current: run,
-                        repositoryFullName: repository.fullName,
-                        preferences: normalized.notificationPreferences
-                    ) {
-                        await notificationService.deliver(notification)
-                    }
-                    previousRuns[key] = run
-                    snapshots.append(WorkflowSnapshot(key: key, run: run))
-                }
+            let runs = try await apiClient.recentRuns(owner: repository.owner, repository: repository.name)
+            let repositoryKey = RepositoryWorkflowKey.repository(owner: repository.owner, repository: repository.name)
+            let repositoryWasPrimed = primedRepositories.contains(repositoryKey)
+            if let latestRun = runs.first {
+                previousRuns[repositoryKey] = latestRun
+                snapshots.append(WorkflowSnapshot(key: repositoryKey, run: latestRun))
             }
+
+            for run in runs.reversed() {
+                let runKey = "\(repository.fullName)#\(run.id)"
+                if let notification = NotificationDecider.notification(
+                    previous: previousRunStates[runKey],
+                    current: run,
+                    repositoryWasPrimed: repositoryWasPrimed,
+                    repositoryFullName: repository.fullName,
+                    preferences: normalized.notificationPreferences
+                ) {
+                    await notificationService.deliver(notification)
+                }
+                previousRunStates[runKey] = run
+            }
+            primedRepositories.insert(repositoryKey)
         }
 
         return snapshots

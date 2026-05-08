@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag, for example v0.1.0"
+        description: "Release tag, for example v0.2.0"
         required: true
-        default: "v0.1.0"
+        default: "v0.2.0"
         type: string
       prerelease:
         description: "Mark the GitHub release as a prerelease"
@@ -53,7 +53,7 @@ jobs:
 
           VERSION="${TAG#v}"
           if [[ -z "$VERSION" || "$VERSION" == "$TAG" ]]; then
-            echo "Tag must start with v, for example v0.1.0" >&2
+            echo "Tag must start with v, for example v0.2.0" >&2
             exit 1
           fi
 

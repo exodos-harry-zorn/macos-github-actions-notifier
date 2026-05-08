@@ -2,7 +2,7 @@
 
 ![GitHub Actions Notifier logo](assets/AppIcon.png)
 
-A small native macOS menu bar app that watches selected GitHub Actions workflows and only interrupts you when a workflow meaningfully changes state.
+A small native macOS menu bar app that watches GitHub Actions activity across selected repositories and only interrupts you when workflow runs meaningfully change state.
 
 The app is built with Swift, SwiftUI, and AppKit menu bar integration. It stores GitHub tokens in macOS Keychain, keeps configuration separate from secrets, and polls conservatively so it behaves like a calm background assistant instead of another noisy dashboard.
 
@@ -12,7 +12,7 @@ The app is built with Swift, SwiftUI, and AppKit menu bar integration. It stores
 - Compact SwiftUI popover showing overall status, configured repositories, latest workflow states, refresh, settings, and GitHub links.
 - GitHub OAuth device flow authentication for native-app friendly sign-in.
 - Keychain-backed token storage.
-- Configurable repositories, workflow file names/IDs, deployment-related labels, notification preferences, and polling interval.
+- Configurable repositories, notification preferences, and polling interval.
 - Native macOS notifications only for workflow start, success, failure, or cancellation changes.
 - GitHub REST API workflow polling with API error and rate-limit handling.
 
@@ -47,16 +47,18 @@ Private repositories require GitHub's classic OAuth `repo` scope because the Git
 
 Tokens are stored only in macOS Keychain under `com.exodoslabs.MacGHActionsNotifier`. Tokens are never written to UserDefaults, logs, or config files.
 
-## Configure Repositories and Workflows
+## Configure Repositories
 
 Open settings from the menu bar popover:
 
-1. Add a repository owner or organization.
-2. Add the repository name.
-3. Add one or more workflow identifiers. GitHub accepts workflow file names such as `ci.yml` or numeric workflow IDs.
-4. Optionally mark workflows as deployment related for your own organization in the UI.
+1. Sign in with GitHub.
+2. Enter the GitHub account or organization.
+3. Click **Load repositories**.
+4. Choose a repository from the dropdown and add it to monitoring.
 5. Choose notification preferences.
 6. Choose a polling interval between 60 and 900 seconds.
+
+Each selected repository monitors all GitHub Actions workflow runs. You do not need to configure `ci.yml` files or individual workflows.
 
 ## Notifications
 

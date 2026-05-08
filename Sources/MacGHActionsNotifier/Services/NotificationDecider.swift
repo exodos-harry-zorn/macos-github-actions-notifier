@@ -10,6 +10,30 @@ enum NotificationDecider {
     static func notification(
         previous: WorkflowRun?,
         current: WorkflowRun,
+        repositoryWasPrimed: Bool,
+        repositoryFullName: String,
+        preferences: NotificationPreferences
+    ) -> WorkflowNotification? {
+        guard let previous else {
+            guard repositoryWasPrimed else { return nil }
+            return notificationForCurrentState(
+                current,
+                repositoryFullName: repositoryFullName,
+                preferences: preferences
+            )
+        }
+
+        return notification(
+            previous: previous,
+            current: current,
+            repositoryFullName: repositoryFullName,
+            preferences: preferences
+        )
+    }
+
+    static func notification(
+        previous: WorkflowRun?,
+        current: WorkflowRun,
         repositoryFullName: String,
         preferences: NotificationPreferences
     ) -> WorkflowNotification? {
@@ -20,6 +44,18 @@ enum NotificationDecider {
             return nil
         }
 
+        return notificationForCurrentState(
+            current,
+            repositoryFullName: repositoryFullName,
+            preferences: preferences
+        )
+    }
+
+    private static func notificationForCurrentState(
+        _ current: WorkflowRun,
+        repositoryFullName: String,
+        preferences: NotificationPreferences
+    ) -> WorkflowNotification? {
         switch current.effectiveState {
         case .running where preferences.notifyOnStarted:
             return WorkflowNotification(

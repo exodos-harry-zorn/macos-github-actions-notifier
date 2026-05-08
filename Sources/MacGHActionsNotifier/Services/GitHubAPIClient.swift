@@ -12,6 +12,28 @@ struct GitHubWorkflowResponse: Decodable {
     }
 }
 
+struct GitHubRepository: Decodable, Identifiable, Hashable {
+    let id: Int64
+    let name: String
+    let fullName: String
+    let isPrivate: Bool
+    let htmlURL: URL
+    let updatedAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case fullName = "full_name"
+        case isPrivate = "private"
+        case htmlURL = "html_url"
+        case updatedAt = "updated_at"
+    }
+}
+
+private struct GitHubUser: Decodable {
+    let login: String
+}
+
 struct GitHubWorkflowRun: Decodable {
     let id: Int64
     let name: String?
@@ -69,21 +91,59 @@ final class GitHubAPIClient: @unchecked Sendable {
         decoder.dateDecodingStrategy = .iso8601
     }
 
-    func latestRun(owner: String, repository: String, workflow: MonitoredWorkflow) async throws -> WorkflowRun? {
-        var allowed = CharacterSet.urlPathAllowed
-        allowed.remove(charactersIn: "/")
-        let encodedWorkflow = workflow.identifier.addingPercentEncoding(withAllowedCharacters: allowed) ?? workflow.identifier
-        let url = URL(string: "https://api.github.com/repos/\(owner)/\(repository)/actions/workflows/\(encodedWorkflow)/runs?per_page=1")!
+    func repositories(owner: String) async throws -> [GitHubRepository] {
+        let normalizedOwner = owner.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedOwner.isEmpty else {
+            throw AppError.api("Enter a GitHub account or organization first.")
+        }
+
+        do {
+            return try await fetchRepositories(path: "orgs/\(encodedPath(normalizedOwner))/repos?type=all&sort=updated&per_page=100")
+        } catch AppError.api {
+            if let user = try? await authenticatedUser(),
+               user.login.caseInsensitiveCompare(normalizedOwner) == .orderedSame {
+                return try await fetchRepositories(path: "user/repos?affiliation=owner&visibility=all&sort=updated&per_page=100")
+            }
+            return try await fetchRepositories(path: "users/\(encodedPath(normalizedOwner))/repos?type=all&sort=updated&per_page=100")
+        }
+    }
+
+    func recentRuns(owner: String, repository: String, limit: Int = 20) async throws -> [WorkflowRun] {
+        let pageSize = max(1, min(limit, 50))
+        let url = URL(string: "https://api.github.com/repos/\(encodedPath(owner))/\(encodedPath(repository))/actions/runs?per_page=\(pageSize)")!
+        let (data, response) = try await session.data(for: authorizedRequest(url: url))
+        try validate(response: response, data: data)
+        let decoded = try decoder.decode(GitHubWorkflowResponse.self, from: data)
+        return decoded.workflowRuns.map { $0.domainModel(fallbackName: $0.name ?? "Workflow") }
+    }
+
+    private func fetchRepositories(path: String) async throws -> [GitHubRepository] {
+        let url = URL(string: "https://api.github.com/\(path)")!
+        let (data, response) = try await session.data(for: authorizedRequest(url: url))
+        try validate(response: response, data: data)
+        return try decoder.decode([GitHubRepository].self, from: data)
+    }
+
+    private func authenticatedUser() async throws -> GitHubUser {
+        let url = URL(string: "https://api.github.com/user")!
+        let (data, response) = try await session.data(for: authorizedRequest(url: url))
+        try validate(response: response, data: data)
+        return try decoder.decode(GitHubUser.self, from: data)
+    }
+
+    private func authorizedRequest(url: URL) throws -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
         request.setValue("Bearer \(try tokenProvider.readToken())", forHTTPHeaderField: "Authorization")
+        return request
+    }
 
-        let (data, response) = try await session.data(for: request)
-        try validate(response: response, data: data)
-        let decoded = try decoder.decode(GitHubWorkflowResponse.self, from: data)
-        return decoded.workflowRuns.first?.domainModel(fallbackName: workflow.displayName)
+    private func encodedPath(_ value: String) -> String {
+        var allowed = CharacterSet.urlPathAllowed
+        allowed.remove(charactersIn: "/")
+        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 
     private func validate(response: URLResponse, data: Data) throws {
@@ -101,7 +161,7 @@ final class GitHubAPIClient: @unchecked Sendable {
             }
             throw AppError.api("GitHub denied access. Check repository permissions and scopes.")
         case 404:
-            throw AppError.api("GitHub could not find a configured repository or workflow.")
+            throw AppError.api("GitHub could not find the configured account, repository, or Actions runs.")
         default:
             let detail = String(data: data, encoding: .utf8) ?? "HTTP \(http.statusCode)"
             logger.error("GitHub API error \(http.statusCode): \(detail)")

@@ -18,6 +18,9 @@ final class AppModel {
     var isRefreshing = false
     var isAuthenticated = false
     var deviceFlow: DeviceFlowSession?
+    var availableRepositories: [GitHubRepository] = []
+    var isLoadingRepositories = false
+    var repositoryLoadMessage: String?
     var onStatusChanged: ((AppStatus) -> Void)?
 
     var overallStatus: AppStatus {
@@ -106,6 +109,9 @@ final class AppModel {
             deviceFlow = nil
             isAuthenticated = true
             lastErrorMessage = nil
+            if !configuration.defaultOwner.isEmpty {
+                await loadAvailableRepositories(owner: configuration.defaultOwner)
+            }
             await refresh()
         } catch {
             lastErrorMessage = ErrorPresenter.message(for: error)
@@ -121,6 +127,29 @@ final class AppModel {
             onStatusChanged?(overallStatus)
         } catch {
             lastErrorMessage = ErrorPresenter.message(for: error)
+        }
+    }
+
+    func loadAvailableRepositories(owner: String) async {
+        let cleanOwner = owner.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isAuthenticated else {
+            repositoryLoadMessage = "Sign in with GitHub before loading repositories."
+            return
+        }
+        guard !cleanOwner.isEmpty else {
+            repositoryLoadMessage = "Enter a GitHub account or organization first."
+            return
+        }
+
+        isLoadingRepositories = true
+        repositoryLoadMessage = nil
+        defer { isLoadingRepositories = false }
+
+        do {
+            availableRepositories = try await apiClient.repositories(owner: cleanOwner)
+            repositoryLoadMessage = availableRepositories.isEmpty ? "No repositories found for \(cleanOwner)." : nil
+        } catch {
+            repositoryLoadMessage = ErrorPresenter.message(for: error)
         }
     }
 

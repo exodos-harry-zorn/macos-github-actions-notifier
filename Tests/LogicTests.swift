@@ -54,9 +54,18 @@ struct LogicTests {
         expect(NotificationDecider.notification(
             previous: nil,
             current: firstObservedRun,
+            repositoryWasPrimed: false,
             repositoryFullName: "exodos/repo",
             preferences: .default
         ) == nil, "first observed workflow run primes state silently")
+
+        expect(NotificationDecider.notification(
+            previous: nil,
+            current: firstObservedRun,
+            repositoryWasPrimed: true,
+            repositoryFullName: "exodos/repo",
+            preferences: .default
+        )?.title == "Workflow started", "new workflow after repository baseline notifies as started")
 
         let previousRun = makeRun(id: 2, status: .completed, conclusion: .success)
         let startedRun = makeRun(id: 3, status: .inProgress, conclusion: nil)
@@ -81,9 +90,7 @@ struct LogicTests {
             githubClientID: " abc ",
             defaultOwner: " org ",
             monitoredRepositories: [
-                MonitoredRepository(owner: " exodos ", name: " repo ", workflows: [
-                    MonitoredWorkflow(identifier: " ci.yml ", displayName: "")
-                ])
+                MonitoredRepository(owner: " exodos ", name: " repo ", workflows: [])
             ],
             notificationPreferences: .default,
             pollingIntervalSeconds: 10
@@ -92,7 +99,10 @@ struct LogicTests {
         expect(config.defaultOwner == "org", "default owner is trimmed")
         expect(config.pollingIntervalSeconds == 60, "polling interval is clamped")
         expect(config.monitoredRepositories.first?.owner == "exodos", "owner is trimmed")
-        expect(config.monitoredRepositories.first?.workflows.first?.displayName == "ci.yml", "workflow display defaults to identifier")
+        expect(config.monitoredRepositories.first?.workflows.isEmpty == true, "repositories can monitor all workflows without workflow config")
+
+        let repoKey = RepositoryWorkflowKey.repository(owner: "exodos", repository: "repo")
+        expect(repoKey.workflowIdentifier == "all", "repository monitor key uses all workflow runs")
 
         print("Logic tests passed")
     }

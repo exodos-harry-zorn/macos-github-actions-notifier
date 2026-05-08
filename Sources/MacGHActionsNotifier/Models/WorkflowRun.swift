@@ -5,6 +5,10 @@ struct RepositoryWorkflowKey: Codable, Hashable, Identifiable {
     var repository: String
     var workflowIdentifier: String
 
+    static func repository(owner: String, repository: String) -> RepositoryWorkflowKey {
+        RepositoryWorkflowKey(owner: owner, repository: repository, workflowIdentifier: "all")
+    }
+
     var id: String {
         "\(owner)/\(repository):\(workflowIdentifier)"
     }
