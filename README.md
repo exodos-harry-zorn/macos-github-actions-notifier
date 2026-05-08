@@ -149,6 +149,12 @@ Screenshots are not committed yet because this repository was initialized headle
 - API requests use GitHub's current REST API version header.
 - Local development bundles are ad-hoc signed. See `docs/RELEASE.md` for Developer ID signing and notarization steps.
 
+## License
+
+GitHub Actions Notifier is open source under the [Apache License 2.0](LICENSE).
+
+Apache-2.0 is a permissive license: you can use, modify, distribute, and build on this project, including commercially, as long as you follow the license terms. The license also includes an explicit patent grant and standard warranty disclaimer.
+
 ## References
 
 - [GitHub OAuth App authorization and device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps)

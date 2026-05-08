@@ -10,6 +10,8 @@ After publishing a release, make sure the release notes point users to the READM
 4. Sign in with the GitHub device code.
 5. Load repositories and add them from the dropdown.
 
+Release artifacts are distributed under the Apache License 2.0. Keep the top-level `LICENSE` file and README license section in sync if licensing ever changes.
+
 Create a release from a local checkout:
 
 ```bash
