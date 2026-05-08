@@ -13,7 +13,10 @@ enum NotificationDecider {
         repositoryFullName: String,
         preferences: NotificationPreferences
     ) -> WorkflowNotification? {
-        guard previous?.id != current.id || previous?.effectiveState != current.effectiveState else {
+        guard let previous else {
+            return nil
+        }
+        guard previous.id != current.id || previous.effectiveState != current.effectiveState else {
             return nil
         }
 

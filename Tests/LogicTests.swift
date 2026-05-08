@@ -50,13 +50,22 @@ struct LogicTests {
             preferences: .default
         ) == nil, "same run and state does not notify")
 
-        let startedRun = makeRun(id: 2, status: .inProgress, conclusion: nil)
+        let firstObservedRun = makeRun(id: 2, status: .inProgress, conclusion: nil)
         expect(NotificationDecider.notification(
             previous: nil,
+            current: firstObservedRun,
+            repositoryFullName: "exodos/repo",
+            preferences: .default
+        ) == nil, "first observed workflow run primes state silently")
+
+        let previousRun = makeRun(id: 2, status: .completed, conclusion: .success)
+        let startedRun = makeRun(id: 3, status: .inProgress, conclusion: nil)
+        expect(NotificationDecider.notification(
+            previous: previousRun,
             current: startedRun,
             repositoryFullName: "exodos/repo",
             preferences: .default
-        )?.title == "Workflow started", "new running workflow notifies as started")
+        )?.title == "Workflow started", "new running workflow after baseline notifies as started")
 
         var preferences = NotificationPreferences.default
         preferences.notifyOnSucceeded = false
