@@ -1,4 +1,4 @@
-.PHONY: test build bundle dmg verify clean
+.PHONY: test build bundle dmg appcast verify clean
 
 test:
 	./scripts/test.sh
@@ -11,6 +11,9 @@ bundle:
 
 dmg: bundle
 	./scripts/create-dmg.sh
+
+appcast: dmg
+	./scripts/create-appcast.sh
 
 verify: test build bundle dmg
 	plutil -lint "dist/GitHub Actions Notifier.app/Contents/Info.plist"

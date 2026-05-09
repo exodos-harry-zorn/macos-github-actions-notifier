@@ -16,6 +16,7 @@ The app is built with Swift, SwiftUI, and AppKit menu bar integration. It stores
 - Expandable repository cards show recent workflow runs, with 5 runs shown by default.
 - Native macOS notifications only for workflow start, success, failure, or cancellation changes.
 - GitHub REST API workflow polling with API error and rate-limit handling.
+- Sparkle-powered automatic app updates from signed GitHub release appcasts.
 
 ## Requirements
 
@@ -32,6 +33,21 @@ The app is built with Swift, SwiftUI, and AppKit menu bar integration. It stores
 5. Launch the app. It appears in the macOS menu bar, not in the Dock.
 
 Current development builds are ad-hoc signed and not notarized. macOS may show a Gatekeeper warning the first time you open the downloaded app. See `docs/RELEASE.md` for the signing and notarization plan.
+
+## App Updates
+
+GitHub Actions Notifier uses Sparkle 2 for native macOS updates. Starting with the first release that includes Sparkle, the app can check GitHub Releases for a signed `appcast.xml`, notify you inside the popover when a new release is available, and install the update without manually downloading another DMG.
+
+Open the menu bar popover and click **Update** to check manually, or open **Settings → Updates** to control automatic checks and automatic download/install behavior.
+
+Auto-updates are secured with Sparkle EdDSA signatures:
+
+- The app embeds only the public Sparkle key.
+- GitHub Actions signs the update archive using the `SPARKLE_PRIVATE_KEY` repository secret.
+- The generated `appcast.xml` is attached to each GitHub release.
+- The app reads the latest appcast from `https://github.com/exodos-harry-zorn/macos-github-actions-notifier/releases/latest/download/appcast.xml`.
+
+Existing versions that were released before Sparkle was added cannot update themselves. Install the first Sparkle-enabled DMG manually once; later releases can be installed through the app.
 
 ## GitHub Authentication Setup
 
@@ -91,7 +107,7 @@ Repository cards in the menu bar popover can be expanded to show recent Actions 
 
 ## Menu Bar Status
 
-When a meaningful workflow event arrives, the menu bar icon changes to the latest result for 60 seconds. After that it returns to the squirrel app logo with a red dot, showing that there are unseen events. Opening the app from the menu bar clears the red dot.
+When a meaningful workflow event arrives, the menu bar icon changes to the latest result for 5 minutes. If a workflow is still running, the blue running status remains visible. After quiet periods it returns to the squirrel app logo with a red dot, showing that there are unseen events. Opening the app from the menu bar clears the red dot.
 
 ## Notifications
 
@@ -143,6 +159,8 @@ The repository also includes a GitHub Actions workflow that runs tests, builds t
 
 Release DMGs are built by GitHub Actions when a `v*` tag is pushed, or by manually running the **Release DMG** workflow. The workflow uploads `GitHub-Actions-Notifier-<version>.dmg` and its SHA-256 checksum to the GitHub release.
 
+Release builds also upload `appcast.xml` for Sparkle. The release workflow requires the `SPARKLE_PRIVATE_KEY` repository secret; without it, the workflow intentionally fails instead of publishing unsigned updates.
+
 ## Screenshots
 
 Screenshots are not committed yet because this repository was initialized headlessly. See `docs/SCREENSHOTS.md` for the intended capture checklist.
@@ -154,6 +172,7 @@ Screenshots are not committed yet because this repository was initialized headle
 - Logout deletes the local Keychain token. To fully revoke access, revoke the OAuth App grant in GitHub account settings.
 - Logs use Apple's unified logging and never include tokens.
 - API requests use GitHub's current REST API version header.
+- App updates use Sparkle with HTTPS GitHub release assets and EdDSA-signed update archives.
 - Local development bundles are ad-hoc signed. See `docs/RELEASE.md` for Developer ID signing and notarization steps.
 
 ## License
@@ -166,3 +185,4 @@ Apache-2.0 is a permissive license: you can use, modify, distribute, and build o
 
 - [GitHub OAuth App authorization and device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps)
 - [GitHub Actions workflow runs REST API](https://docs.github.com/v3/actions/workflow-runs/)
+- [Sparkle 2 documentation](https://sparkle-project.org/documentation/)

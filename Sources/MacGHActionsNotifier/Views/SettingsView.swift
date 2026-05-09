@@ -39,6 +39,7 @@ struct SettingsView: View {
                     repositoriesSection
                     notificationsSection
                     pollingSection
+                    updatesSection
                     securitySection
                 }
                 .padding(24)
@@ -169,9 +170,58 @@ struct SettingsView: View {
         }
     }
 
+    private var updatesSection: some View {
+        SettingsSection(title: "Updates", systemImage: "arrow.down.circle") {
+            Toggle("Automatically check for app updates", isOn: Binding(
+                get: { model.softwareUpdateSettings.automaticallyChecksForUpdates },
+                set: { model.setAutomaticallyChecksForUpdates($0) }
+            ))
+            .disabled(!model.softwareUpdateSettings.isAvailable)
+
+            Toggle("Automatically download and install updates", isOn: Binding(
+                get: { model.softwareUpdateSettings.automaticallyDownloadsUpdates },
+                set: { model.setAutomaticallyDownloadsUpdates($0) }
+            ))
+            .disabled(!model.softwareUpdateSettings.isAvailable || !model.softwareUpdateSettings.allowsAutomaticUpdates)
+
+            HStack {
+                Button {
+                    model.checkForUpdates()
+                } label: {
+                    Label("Check for Updates", systemImage: "magnifyingglass")
+                }
+                .disabled(!model.softwareUpdateSettings.canCheckForUpdates)
+
+                if model.softwareUpdateState.canInstallUpdate {
+                    Button {
+                        model.installAvailableUpdate()
+                    } label: {
+                        Label("Install Update", systemImage: "arrow.down.circle.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Design.blue)
+                }
+            }
+
+            if let title = model.softwareUpdateState.bannerTitle,
+               let subtitle = model.softwareUpdateState.bannerSubtitle {
+                Text("\(title). \(subtitle)")
+                    .foregroundStyle(model.softwareUpdateState.canInstallUpdate ? Design.blue : Design.orange)
+            } else if let lastCheck = model.softwareUpdateSettings.lastUpdateCheckDate {
+                Text("Last checked \(TimestampFormatter.compact(lastCheck)).")
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Updates are checked with Sparkle using the signed GitHub release appcast.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private var securitySection: some View {
         SettingsSection(title: "Security", systemImage: "checkmark.shield") {
             Text("GitHub tokens and the OAuth Client ID are stored in macOS Keychain with device-only accessibility. Configuration is stored in UserDefaults and never contains GitHub credentials. Public repository monitoring can request no OAuth scopes; private repositories require GitHub's `repo` OAuth scope.")
+                .foregroundStyle(.secondary)
+            Text("App updates use Sparkle with EdDSA-signed release archives from this repository's GitHub Releases appcast. The private update signing key is stored as a GitHub Actions secret and is not bundled with the app.")
                 .foregroundStyle(.secondary)
             Text("License: Apache License 2.0. The app is provided as open source software without warranties.")
                 .foregroundStyle(.secondary)

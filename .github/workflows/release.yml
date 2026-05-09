@@ -108,11 +108,19 @@ jobs:
 
           - ${DMG}
           - SHA-256: \`${SHA}\`
+          - Sparkle appcast: \`appcast.xml\`
 
           ### Signing note
 
-          This build is ad-hoc signed and not notarized yet. macOS Gatekeeper may warn when opening a downloaded copy. See \`docs/RELEASE.md\` for the Developer ID signing and notarization checklist.
+          This build is ad-hoc signed and not notarized yet. macOS Gatekeeper may warn when opening a downloaded copy. The Sparkle appcast is EdDSA-signed for update verification. See \`docs/RELEASE.md\` for the Developer ID signing and notarization checklist.
           EOF
+
+      - name: Create Sparkle appcast
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: ./scripts/create-appcast.sh
 
       - name: Publish GitHub release
         env:
@@ -123,6 +131,7 @@ jobs:
           VERSION="${{ steps.meta.outputs.version }}"
           DMG="dist/GitHub-Actions-Notifier-${VERSION}.dmg"
           SHA="dist/GitHub-Actions-Notifier-${VERSION}.dmg.sha256"
+          APPCAST="dist/appcast.xml"
           PRERELEASE="${{ steps.meta.outputs.prerelease }}"
 
           FLAGS=()
@@ -131,8 +140,8 @@ jobs:
           fi
 
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$DMG" "$SHA" --clobber
+            gh release upload "$TAG" "$DMG" "$SHA" "$APPCAST" --clobber
             gh release edit "$TAG" --title "GitHub Actions Notifier $TAG" --notes-file dist/release-notes.md "${FLAGS[@]}"
           else
-            gh release create "$TAG" "$DMG" "$SHA" --title "GitHub Actions Notifier $TAG" --notes-file dist/release-notes.md "${FLAGS[@]}"
+            gh release create "$TAG" "$DMG" "$SHA" "$APPCAST" --title "GitHub Actions Notifier $TAG" --notes-file dist/release-notes.md "${FLAGS[@]}"
           fi

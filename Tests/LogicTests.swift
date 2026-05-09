@@ -131,6 +131,16 @@ struct LogicTests {
         expect(TimestampFormatter.compact(Date(timeIntervalSince1970: 9_700), now: now) == "5m ago", "timestamp formats minutes")
         expect(TimestampFormatter.compact(Date(timeIntervalSince1970: 2_800), now: now) == "2h ago", "timestamp formats hours")
 
+        let idleUpdateState = SoftwareUpdateState.idle
+        expect(idleUpdateState.bannerTitle == nil, "idle update state does not show a banner")
+        let availableUpdate = SoftwareUpdateState.updateAvailable(version: "0.4.0")
+        expect(availableUpdate.bannerTitle == "Update 0.4.0 available", "available update has a clear banner title")
+        expect(availableUpdate.bannerSubtitle == "Install the latest release without downloading a DMG manually.", "available update explains seamless install")
+        expect(availableUpdate.canInstallUpdate == true, "available update can be installed")
+        let failedUpdate = SoftwareUpdateState.failed("Appcast could not be verified.")
+        expect(failedUpdate.bannerTitle == "Update check needs attention", "update failure has an attention banner")
+        expect(failedUpdate.canInstallUpdate == false, "failed update cannot install")
+
         print("Logic tests passed")
     }
 }

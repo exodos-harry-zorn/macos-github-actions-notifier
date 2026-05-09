@@ -9,6 +9,7 @@
 - `WorkflowMonitor` polls configured repositories and compares recent Actions runs against previous snapshots.
 - `GitHubAPIClient` lists repositories and calls GitHub's repository workflow-runs REST endpoint.
 - `GitHubDeviceAuthenticator` implements OAuth device flow.
+- `SparkleUpdateController` wraps Sparkle's `SPUStandardUpdaterController` and reports update availability into `AppModel`.
 - `KeychainTokenStore` stores the GitHub access token and OAuth Client ID.
 - `UserDefaultsConfigurationStore` persists non-secret app configuration.
 
@@ -34,6 +35,26 @@ Configuration:
 - Monitored repositories, notification preferences, polling interval, and display preferences are stored as JSON in UserDefaults.
 - Recent run display count is stored in UserDefaults and defaults to 5.
 - Polling interval is clamped to 60-900 seconds.
+- Sparkle stores its own update preferences in the app's standard user defaults keys, as recommended by Sparkle. The app does not duplicate those settings in `AppConfiguration`.
+
+## App Updates
+
+Updates use Sparkle 2 through `SPUStandardUpdaterController`.
+
+The app bundle contains:
+
+- `SUFeedURL`, pointing to the latest GitHub release's `appcast.xml` asset.
+- `SUPublicEDKey`, the public EdDSA key used to verify update archives.
+- `SUEnableAutomaticChecks`, `SUAutomaticallyUpdate`, and `SUAllowsAutomaticUpdates`, enabling automatic checks and automatic download/install support by default.
+
+Release publishing creates a signed Sparkle appcast:
+
+1. GitHub Actions builds the `.app` bundle and DMG.
+2. `scripts/create-appcast.sh` runs Sparkle's `generate_appcast` with the `SPARKLE_PRIVATE_KEY` GitHub Actions secret.
+3. The workflow uploads the DMG, checksum, and `appcast.xml` to the GitHub release.
+4. Installed apps read the stable latest-release appcast URL and let Sparkle validate and install the update.
+
+`AppModel.softwareUpdateState` provides the in-app banner state. The popover shows a compact update notification when Sparkle reports a valid update, and the settings screen exposes manual checks and automatic update preferences.
 
 ## GitHub API Usage
 
@@ -55,7 +76,7 @@ Errors are converted into user-facing status messages. `401` asks the user to si
 
 ## Notification Logic
 
-The monitor keeps recent displayed runs for each repository and a previous-state snapshot for recent workflow run IDs. A notification is emitted only when a run appears or changes state after the repository has already been observed once. The menu bar shows the event status for 60 seconds, then returns to the app logo with an unread red dot until the user opens the popover.
+The monitor keeps recent displayed runs for each repository and a previous-state snapshot for recent workflow run IDs. A notification is emitted only when a run appears or changes state after the repository has already been observed once. The menu bar shows the event status for 5 minutes, keeps running status visible while a run is active, then returns to the app logo with an unread red dot until the user opens the popover.
 
 Effective states are:
 

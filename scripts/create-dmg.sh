@@ -18,7 +18,7 @@ fi
 
 rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR" "$DIST_DIR"
-cp -R "$APP_PATH" "$STAGING_DIR/"
+ditto "$APP_PATH" "$STAGING_DIR/$APP_NAME.app"
 ln -s /Applications "$STAGING_DIR/Applications"
 
 rm -f "$DMG_PATH" "$DMG_PATH.sha256"

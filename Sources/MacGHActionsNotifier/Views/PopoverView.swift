@@ -7,6 +7,7 @@ struct PopoverView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            updateBanner
             Divider()
             content
             Divider()
@@ -49,6 +50,38 @@ struct PopoverView: View {
         let count = model.configuration.monitoredRepositories.count
         if count == 0 { return "Add repositories to monitor all GitHub Actions activity." }
         return "Monitoring \(count) repositor\(count == 1 ? "y" : "ies") quietly in the background."
+    }
+
+    @ViewBuilder
+    private var updateBanner: some View {
+        if let title = model.softwareUpdateState.bannerTitle,
+           let subtitle = model.softwareUpdateState.bannerSubtitle {
+            HStack(spacing: 12) {
+                Image(systemName: model.softwareUpdateState.canInstallUpdate ? "arrow.down.circle.fill" : "exclamationmark.triangle.fill")
+                    .font(.title3)
+                    .foregroundStyle(model.softwareUpdateState.canInstallUpdate ? Design.blue : Design.orange)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                Spacer()
+                if model.softwareUpdateState.canInstallUpdate {
+                    Button("Install") {
+                        model.installAvailableUpdate()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .tint(Design.blue)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Design.blue.opacity(0.08))
+        }
     }
 
     @ViewBuilder
@@ -98,6 +131,13 @@ struct PopoverView: View {
             .disabled(model.isRefreshing)
 
             Spacer()
+
+            Button {
+                model.checkForUpdates()
+            } label: {
+                Label("Update", systemImage: "arrow.down.circle")
+            }
+            .disabled(!model.softwareUpdateSettings.canCheckForUpdates)
 
             Button {
                 showingSettings = true

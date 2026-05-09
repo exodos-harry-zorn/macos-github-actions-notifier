@@ -24,6 +24,9 @@ final class AppModel {
     var repositoryLoadMessage: String?
     var onStatusChanged: ((AppStatus) -> Void)?
     var onWorkflowEvent: ((AppStatus) -> Void)?
+    var softwareUpdateState: SoftwareUpdateState = .idle
+    var softwareUpdateSettings: SoftwareUpdateSettings = .unavailable
+    private var softwareUpdateChecker: (any SoftwareUpdateChecking)?
 
     var overallStatus: AppStatus {
         if lastErrorMessage != nil { return .problem }
@@ -52,6 +55,11 @@ final class AppModel {
             }
             await refresh()
         }
+    }
+
+    func setSoftwareUpdateChecker(_ checker: any SoftwareUpdateChecking) {
+        softwareUpdateChecker = checker
+        softwareUpdateSettings = checker.settings
     }
 
     func stop() {
@@ -148,6 +156,38 @@ final class AppModel {
         } catch {
             lastErrorMessage = ErrorPresenter.message(for: error)
         }
+    }
+
+    func checkForUpdates() {
+        guard let softwareUpdateChecker else {
+            softwareUpdateState = .failed("Automatic updates are not available in this build.")
+            return
+        }
+        softwareUpdateChecker.checkForUpdates()
+    }
+
+    func checkForUpdateInformation() {
+        guard let softwareUpdateChecker else {
+            softwareUpdateState = .failed("Automatic updates are not available in this build.")
+            return
+        }
+        softwareUpdateChecker.checkForUpdateInformation()
+    }
+
+    func installAvailableUpdate() {
+        checkForUpdates()
+    }
+
+    func setAutomaticallyChecksForUpdates(_ enabled: Bool) {
+        softwareUpdateChecker?.setAutomaticallyChecksForUpdates(enabled)
+    }
+
+    func setAutomaticallyDownloadsUpdates(_ enabled: Bool) {
+        softwareUpdateChecker?.setAutomaticallyDownloadsUpdates(enabled)
+    }
+
+    func applySoftwareUpdateSettings(_ settings: SoftwareUpdateSettings) {
+        softwareUpdateSettings = settings
     }
 
     func loadAvailableRepositories(owner: String) async {
