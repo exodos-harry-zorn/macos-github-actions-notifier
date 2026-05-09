@@ -9,6 +9,7 @@ swiftc \
   Sources/MacGHActionsNotifier/Models/AppStatus.swift \
   Sources/MacGHActionsNotifier/Models/AppConfiguration.swift \
   Sources/MacGHActionsNotifier/Models/WorkflowRun.swift \
+  Sources/MacGHActionsNotifier/Services/AppError.swift \
   Sources/MacGHActionsNotifier/Services/StatusAggregator.swift \
   Sources/MacGHActionsNotifier/Services/NotificationDecider.swift \
   Sources/MacGHActionsNotifier/Support/SoftwareUpdateState.swift \

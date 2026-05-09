@@ -1,6 +1,9 @@
 import Foundation
 
 enum SoftwareUpdateState: Equatable {
+    private static let sparkleErrorDomain = "SUSparkleErrorDomain"
+    private static let sparkleNoUpdateErrorCode = 1001
+
     case idle
     case checking
     case upToDate
@@ -38,6 +41,15 @@ enum SoftwareUpdateState: Equatable {
             return true
         }
         return false
+    }
+
+    static func finishedUpdateCycle(error: (any Error)?) -> SoftwareUpdateState? {
+        guard let error else { return nil }
+        let nsError = error as NSError
+        if nsError.domain == sparkleErrorDomain && nsError.code == sparkleNoUpdateErrorCode {
+            return .upToDate
+        }
+        return .failed(ErrorPresenter.message(for: error))
     }
 }
 

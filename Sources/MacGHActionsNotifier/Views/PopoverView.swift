@@ -132,12 +132,13 @@ struct PopoverView: View {
 
             Spacer()
 
-            Button {
-                model.checkForUpdates()
-            } label: {
-                Label("Update", systemImage: "arrow.down.circle")
+            if model.softwareUpdateSettings.canCheckForUpdates {
+                Button {
+                    model.checkForUpdates()
+                } label: {
+                    Label("Update", systemImage: "arrow.down.circle")
+                }
             }
-            .disabled(!model.softwareUpdateSettings.canCheckForUpdates)
 
             Button {
                 showingSettings = true

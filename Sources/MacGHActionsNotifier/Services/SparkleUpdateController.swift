@@ -74,8 +74,8 @@ final class SparkleUpdateController: NSObject, SoftwareUpdateChecking, SPUUpdate
     }
 
     func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: (any Error)?) {
-        if let error {
-            appModel?.softwareUpdateState = .failed(ErrorPresenter.message(for: error))
+        if let state = SoftwareUpdateState.finishedUpdateCycle(error: error) {
+            appModel?.softwareUpdateState = state
         }
         appModel?.applySoftwareUpdateSettings(settings)
     }

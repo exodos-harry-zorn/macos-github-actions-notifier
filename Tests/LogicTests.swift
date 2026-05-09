@@ -140,6 +140,10 @@ struct LogicTests {
         let failedUpdate = SoftwareUpdateState.failed("Appcast could not be verified.")
         expect(failedUpdate.bannerTitle == "Update check needs attention", "update failure has an attention banner")
         expect(failedUpdate.canInstallUpdate == false, "failed update cannot install")
+        let noUpdateError = NSError(domain: "SUSparkleErrorDomain", code: 1001, userInfo: [NSLocalizedDescriptionKey: "You’re up to date!"])
+        let noUpdateCycleState = SoftwareUpdateState.finishedUpdateCycle(error: noUpdateError)
+        expect(noUpdateCycleState == .upToDate, "Sparkle no-update finish error maps to quiet up-to-date state")
+        expect(noUpdateCycleState?.bannerTitle == nil, "Sparkle no-update finish error does not show a banner")
 
         print("Logic tests passed")
     }
