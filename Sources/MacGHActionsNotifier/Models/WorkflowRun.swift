@@ -35,6 +35,7 @@ struct WorkflowRun: Codable, Equatable, Identifiable {
     var runNumber: Int
     var createdAt: Date
     var updatedAt: Date
+    var triggeredBy: String?
 
     var effectiveState: WorkflowEffectiveState {
         switch status {

@@ -78,6 +78,8 @@ Errors are converted into user-facing status messages. `401` asks the user to si
 
 The monitor keeps recent displayed runs for each repository and a previous-state snapshot for recent workflow run IDs. A notification is emitted only when a run appears or changes state after the repository has already been observed once. The menu bar shows the event status for 5 minutes, keeps running status visible while a run is active, then returns to the app logo with an unread red dot until the user opens the popover.
 
+Recent run rows include the GitHub user that triggered the workflow. The API mapping prefers `triggering_actor.login`, which reflects the user that triggered or re-ran the workflow, and falls back to `actor.login` when `triggering_actor` is unavailable.
+
 Effective states are:
 
 - `running` for queued/in-progress/waiting/requested/pending.

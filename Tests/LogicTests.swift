@@ -12,7 +12,8 @@ func expect(_ condition: @autoclosure () -> Bool, _ message: String) -> Bool {
 func makeRun(
     id: Int64 = Int64.random(in: 1...999),
     status: WorkflowRunStatus,
-    conclusion: WorkflowRunConclusion?
+    conclusion: WorkflowRunConclusion?,
+    triggeredBy: String? = nil
 ) -> WorkflowRun {
     WorkflowRun(
         id: id,
@@ -25,7 +26,8 @@ func makeRun(
         branch: "main",
         runNumber: 10,
         createdAt: Date(),
-        updatedAt: Date()
+        updatedAt: Date(timeIntervalSince1970: 10_000),
+        triggeredBy: triggeredBy
     )
 }
 
@@ -130,6 +132,35 @@ struct LogicTests {
         expect(TimestampFormatter.compact(Date(timeIntervalSince1970: 9_970), now: now) == "just now", "timestamp formats seconds as just now")
         expect(TimestampFormatter.compact(Date(timeIntervalSince1970: 9_700), now: now) == "5m ago", "timestamp formats minutes")
         expect(TimestampFormatter.compact(Date(timeIntervalSince1970: 2_800), now: now) == "2h ago", "timestamp formats hours")
+        let actorRun = makeRun(status: .completed, conclusion: .success, triggeredBy: "exodos-harry-zorn")
+        expect(WorkflowRunDisplayFormatter.detail(for: actorRun, now: now) == "#10 succeeded - main - by exodos-harry-zorn - just now", "workflow detail includes triggering user")
+        let actorlessRun = makeRun(status: .completed, conclusion: .success)
+        expect(!WorkflowRunDisplayFormatter.detail(for: actorlessRun, now: now).contains(" by "), "workflow detail omits actor segment when unknown")
+        let workflowRunJSON = Data("""
+        {
+          "workflow_runs": [
+            {
+              "id": 42,
+              "name": "Deploy",
+              "workflow_id": 7,
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/example/repo/actions/runs/42",
+              "head_branch": "main",
+              "run_number": 12,
+              "display_title": "Deploy production",
+              "created_at": "2026-05-11T06:00:00Z",
+              "updated_at": "2026-05-11T06:04:00Z",
+              "actor": { "login": "original-user" },
+              "triggering_actor": { "login": "rerun-user" }
+            }
+          ]
+        }
+        """.utf8)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decodedRun = try! decoder.decode(GitHubWorkflowResponse.self, from: workflowRunJSON).workflowRuns[0].domainModel(fallbackName: "Workflow")
+        expect(decodedRun.triggeredBy == "rerun-user", "workflow run prefers triggering actor login")
 
         let idleUpdateState = SoftwareUpdateState.idle
         expect(idleUpdateState.bannerTitle == nil, "idle update state does not show a banner")

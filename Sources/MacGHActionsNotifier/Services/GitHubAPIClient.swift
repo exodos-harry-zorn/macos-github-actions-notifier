@@ -34,6 +34,10 @@ private struct GitHubUser: Decodable {
     let login: String
 }
 
+struct GitHubWorkflowActor: Decodable {
+    let login: String
+}
+
 struct GitHubWorkflowRun: Decodable {
     let id: Int64
     let name: String?
@@ -46,6 +50,8 @@ struct GitHubWorkflowRun: Decodable {
     let displayTitle: String?
     let createdAt: Date
     let updatedAt: Date
+    let actor: GitHubWorkflowActor?
+    let triggeringActor: GitHubWorkflowActor?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -59,6 +65,8 @@ struct GitHubWorkflowRun: Decodable {
         case displayTitle = "display_title"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case actor
+        case triggeringActor = "triggering_actor"
     }
 
     func domainModel(fallbackName: String) -> WorkflowRun {
@@ -73,7 +81,8 @@ struct GitHubWorkflowRun: Decodable {
             branch: headBranch ?? "unknown",
             runNumber: runNumber,
             createdAt: createdAt,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            triggeredBy: triggeringActor?.login ?? actor?.login
         )
     }
 }

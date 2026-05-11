@@ -10,10 +10,14 @@ swiftc \
   Sources/MacGHActionsNotifier/Models/AppConfiguration.swift \
   Sources/MacGHActionsNotifier/Models/WorkflowRun.swift \
   Sources/MacGHActionsNotifier/Services/AppError.swift \
+  Sources/MacGHActionsNotifier/Services/AppLogger.swift \
+  Sources/MacGHActionsNotifier/Services/GitHubAPIClient.swift \
   Sources/MacGHActionsNotifier/Services/StatusAggregator.swift \
   Sources/MacGHActionsNotifier/Services/NotificationDecider.swift \
   Sources/MacGHActionsNotifier/Support/SoftwareUpdateState.swift \
   Sources/MacGHActionsNotifier/Support/TimestampFormatter.swift \
+  Sources/MacGHActionsNotifier/Support/WorkflowStateLabels.swift \
+  Sources/MacGHActionsNotifier/Support/WorkflowRunDisplayFormatter.swift \
   Tests/LogicTests.swift \
   -o .build/test-products/logic-tests
 

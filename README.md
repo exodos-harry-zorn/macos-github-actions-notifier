@@ -13,7 +13,7 @@ The app is built with Swift, SwiftUI, and AppKit menu bar integration. It stores
 - GitHub OAuth device flow authentication for native-app friendly sign-in.
 - Keychain-backed token storage.
 - Configurable repositories, notification preferences, and polling interval.
-- Expandable repository cards show recent workflow runs, with 5 runs shown by default.
+- Expandable repository cards show recent workflow runs, who triggered them, and direct GitHub links, with 5 runs shown by default.
 - Native macOS notifications only for workflow start, success, failure, or cancellation changes.
 - GitHub REST API workflow polling with API error and rate-limit handling.
 - Sparkle-powered automatic app updates from signed GitHub release appcasts.
@@ -103,7 +103,7 @@ Open settings from the menu bar popover:
 
 Each selected repository monitors all GitHub Actions workflow runs. You do not need to configure `ci.yml` files or individual workflows.
 
-Repository cards in the menu bar popover can be expanded to show recent Actions runs and direct GitHub links. Settings let you choose how many recent runs to show per repository; the default is 5.
+Repository cards in the menu bar popover can be expanded to show recent Actions runs, the GitHub user that triggered each run, and direct GitHub links. Settings let you choose how many recent runs to show per repository; the default is 5.
 
 ## Menu Bar Status
 
