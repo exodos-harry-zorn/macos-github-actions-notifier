@@ -152,6 +152,9 @@ struct LogicTests {
         expect(WorkflowRunDisplayFormatter.failureDetail(for: failedRun) == "Failed at build / Run tests", "failure detail previews failed job and step")
         let durationRun = makeRun(status: .completed, conclusion: .success, durationSeconds: 125)
         expect(WorkflowRunDisplayFormatter.detail(for: durationRun, now: now).contains("2m"), "workflow detail includes completed duration")
+        expect(WorkflowRunDisplayFormatter.finishedText(for: durationRun, now: now) == "Finished just now", "completed workflow exposes a standalone finished timestamp")
+        let runningTimestampRun = makeRun(status: .inProgress, conclusion: nil)
+        expect(WorkflowRunDisplayFormatter.finishedText(for: runningTimestampRun, now: now) == "Updated just now", "running workflow exposes a standalone updated timestamp")
         let workflowRunJSON = Data("""
         {
           "workflow_runs": [

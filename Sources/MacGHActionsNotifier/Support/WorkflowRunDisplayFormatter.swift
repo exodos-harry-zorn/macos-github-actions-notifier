@@ -2,6 +2,10 @@ import Foundation
 
 enum WorkflowRunDisplayFormatter {
     static func detail(for run: WorkflowRun, now: Date = Date()) -> String {
+        "\(metadata(for: run, now: now)) - \(TimestampFormatter.compact(run.updatedAt, now: now))"
+    }
+
+    static func metadata(for run: WorkflowRun, now: Date = Date()) -> String {
         var parts = [
             "#\(run.runNumber) \(run.effectiveState.label)",
             run.branch
@@ -17,7 +21,6 @@ enum WorkflowRunDisplayFormatter {
         if let duration = durationText(for: run, now: now) {
             parts.append(duration)
         }
-        parts.append(TimestampFormatter.compact(run.updatedAt, now: now))
         return parts.joined(separator: " - ")
     }
 
@@ -28,6 +31,11 @@ enum WorkflowRunDisplayFormatter {
     static func failureDetail(for run: WorkflowRun) -> String? {
         guard let failurePreview = run.failurePreview else { return nil }
         return "Failed at \(failurePreview.displayText)"
+    }
+
+    static func finishedText(for run: WorkflowRun, now: Date = Date()) -> String {
+        let label = run.effectiveState == .running ? "Updated" : "Finished"
+        return "\(label) \(TimestampFormatter.compact(run.updatedAt, now: now))"
     }
 
     private static func durationText(for run: WorkflowRun, now: Date) -> String? {

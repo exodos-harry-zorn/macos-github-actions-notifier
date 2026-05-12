@@ -273,10 +273,23 @@ private struct RepositoryCard: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
-                Text(latestRun.map { WorkflowRunDisplayFormatter.summary(for: $0) } ?? "No run loaded yet")
+                if let latestRun {
+                    HStack(spacing: 8) {
+                        Text("\(latestRun.name) \(WorkflowRunDisplayFormatter.metadata(for: latestRun))")
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
+                        Text(WorkflowRunDisplayFormatter.finishedText(for: latestRun))
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                } else {
+                    Text("No run loaded yet")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
         }
     }
@@ -304,10 +317,16 @@ private struct WorkflowRow: View {
                 Text(run?.name ?? "All Actions")
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                HStack(spacing: 8) {
+                    Text(metadata)
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    Text(finishedText)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 if let failureDetail {
                     Text(failureDetail)
                         .font(.caption)
@@ -347,9 +366,14 @@ private struct WorkflowRow: View {
         }
     }
 
-    private var detail: String {
+    private var metadata: String {
         guard let run else { return "No run loaded yet" }
-        return WorkflowRunDisplayFormatter.detail(for: run)
+        return WorkflowRunDisplayFormatter.metadata(for: run)
+    }
+
+    private var finishedText: String {
+        guard let run else { return "" }
+        return WorkflowRunDisplayFormatter.finishedText(for: run)
     }
 
     private var failureDetail: String? {
