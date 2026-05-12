@@ -13,7 +13,12 @@ func makeRun(
     id: Int64 = Int64.random(in: 1...999),
     status: WorkflowRunStatus,
     conclusion: WorkflowRunConclusion?,
-    triggeredBy: String? = nil
+    triggeredBy: String? = nil,
+    branch: String = "main",
+    pullRequests: [WorkflowPullRequest] = [],
+    failurePreview: WorkflowFailurePreview? = nil,
+    durationSeconds: TimeInterval? = nil,
+    isDeployment: Bool = false
 ) -> WorkflowRun {
     WorkflowRun(
         id: id,
@@ -23,11 +28,16 @@ func makeRun(
         status: status,
         conclusion: conclusion,
         htmlURL: URL(string: "https://github.com/example/repo/actions/runs/\(id)")!,
-        branch: "main",
+        branch: branch,
         runNumber: 10,
         createdAt: Date(),
         updatedAt: Date(timeIntervalSince1970: 10_000),
-        triggeredBy: triggeredBy
+        triggeredBy: triggeredBy,
+        event: "push",
+        pullRequests: pullRequests,
+        failurePreview: failurePreview,
+        durationSeconds: durationSeconds,
+        isDeployment: isDeployment
     )
 }
 
@@ -136,6 +146,12 @@ struct LogicTests {
         expect(WorkflowRunDisplayFormatter.detail(for: actorRun, now: now) == "#10 succeeded - main - by exodos-harry-zorn - just now", "workflow detail includes triggering user")
         let actorlessRun = makeRun(status: .completed, conclusion: .success)
         expect(!WorkflowRunDisplayFormatter.detail(for: actorlessRun, now: now).contains(" by "), "workflow detail omits actor segment when unknown")
+        let pullRequestRun = makeRun(status: .completed, conclusion: .success, pullRequests: [WorkflowPullRequest(number: 897, htmlURL: nil, title: "Add cache")])
+        expect(WorkflowRunDisplayFormatter.detail(for: pullRequestRun, now: now).contains("PR #897 Add cache"), "workflow detail includes pull request context")
+        let failedRun = makeRun(status: .completed, conclusion: .failure, failurePreview: WorkflowFailurePreview(jobName: "build", stepName: "Run tests", htmlURL: nil))
+        expect(WorkflowRunDisplayFormatter.failureDetail(for: failedRun) == "Failed at build / Run tests", "failure detail previews failed job and step")
+        let durationRun = makeRun(status: .completed, conclusion: .success, durationSeconds: 125)
+        expect(WorkflowRunDisplayFormatter.detail(for: durationRun, now: now).contains("2m"), "workflow detail includes completed duration")
         let workflowRunJSON = Data("""
         {
           "workflow_runs": [
@@ -151,8 +167,13 @@ struct LogicTests {
               "display_title": "Deploy production",
               "created_at": "2026-05-11T06:00:00Z",
               "updated_at": "2026-05-11T06:04:00Z",
+              "event": "pull_request",
+              "run_started_at": "2026-05-11T06:01:00Z",
               "actor": { "login": "original-user" },
-              "triggering_actor": { "login": "rerun-user" }
+              "triggering_actor": { "login": "rerun-user" },
+              "pull_requests": [
+                { "number": 33, "html_url": "https://github.com/example/repo/pull/33", "title": "Improve deploy" }
+              ]
             }
           ]
         }
@@ -161,6 +182,27 @@ struct LogicTests {
         decoder.dateDecodingStrategy = .iso8601
         let decodedRun = try! decoder.decode(GitHubWorkflowResponse.self, from: workflowRunJSON).workflowRuns[0].domainModel(fallbackName: "Workflow")
         expect(decodedRun.triggeredBy == "rerun-user", "workflow run prefers triggering actor login")
+        expect(decodedRun.pullRequests.first?.number == 33, "workflow run decodes pull request context")
+        expect(decodedRun.durationSeconds == 180, "workflow run computes completed run duration")
+
+        expect(BranchMatcher.matches(branch: "feature/detail-page", patterns: ["main", "feature/*"]), "branch filter supports wildcards")
+        expect(!BranchMatcher.matches(branch: "develop", patterns: ["main", "release/*"]), "branch filter excludes unmatched branches")
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let evening = DateComponents(calendar: calendar, timeZone: calendar.timeZone, year: 2026, month: 5, day: 12, hour: 22).date!
+        expect(QuietHours.contains(evening, startHour: 18, endHour: 8, calendar: calendar), "quiet hours can span midnight")
+        let mutedRepository = MonitoredRepository(owner: "exodos", name: "repo", mutedUntil: now.addingTimeInterval(3_600))
+        expect(!NotificationPolicy.shouldNotify(run: actorRun, repository: mutedRepository, preferences: .default, currentUserLogin: "exodos-harry-zorn", now: now), "muted repositories suppress notifications")
+        var myRunPreferences = NotificationPreferences.default
+        myRunPreferences.notifyOnlyForCurrentUser = true
+        expect(!NotificationPolicy.shouldNotify(run: actorRun, repository: MonitoredRepository(owner: "exodos", name: "repo"), preferences: myRunPreferences, currentUserLogin: "someone-else", now: now), "my-runs mode suppresses other users")
+        let deploymentRepository = MonitoredRepository(owner: "exodos", name: "repo", deploymentWorkflowPatterns: ["*CI*"])
+        let deploymentRun = makeRun(status: .completed, conclusion: .success)
+        expect(DeploymentClassifier.isDeployment(run: deploymentRun, repository: deploymentRepository), "deployment classifier matches workflow names")
+        let firstFailure = WorkflowNotification(title: "Workflow failed", body: "one", url: URL(string: "https://github.com/example/repo/actions/runs/1")!, repositoryFullName: "exodos/repo", workflowName: "CI", kind: .failed)
+        let secondFailure = WorkflowNotification(title: "Workflow failed", body: "two", url: URL(string: "https://github.com/example/repo/actions/runs/2")!, repositoryFullName: "exodos/repo", workflowName: "Deploy", kind: .failed)
+        let groupedFailures = NotificationGrouper.grouped([firstFailure, secondFailure], groupFailures: true)
+        expect(groupedFailures.count == 1 && groupedFailures[0].title == "2 workflows failed", "failure grouping collapses repository failures")
 
         let idleUpdateState = SoftwareUpdateState.idle
         expect(idleUpdateState.bannerTitle == nil, "idle update state does not show a banner")

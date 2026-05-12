@@ -91,6 +91,9 @@ struct PopoverView: View {
         } else {
             ScrollView {
                 LazyVStack(spacing: 12) {
+                    if !deploymentRuns.isEmpty {
+                        DeploymentSection(runs: deploymentRuns)
+                    }
                     ForEach(model.configuration.monitoredRepositories) { repository in
                         RepositoryCard(repository: repository, runs: model.recentRuns)
                     }
@@ -132,6 +135,14 @@ struct PopoverView: View {
 
             Spacer()
 
+            if let rateLimitText = model.lastRateLimit?.displayText {
+                Text(rateLimitText)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .help("GitHub API rate-limit budget")
+            }
+
             if model.softwareUpdateSettings.canCheckForUpdates {
                 Button {
                     model.checkForUpdates()
@@ -151,6 +162,39 @@ struct PopoverView: View {
         }
         .padding(16)
         .background(.regularMaterial)
+    }
+
+    private var deploymentRuns: [WorkflowRun] {
+        Array(
+            model.recentRuns.values
+                .flatMap { $0 }
+                .filter(\.isDeployment)
+                .sorted { $0.updatedAt > $1.updatedAt }
+                .prefix(3)
+        )
+    }
+}
+
+private struct DeploymentSection: View {
+    var runs: [WorkflowRun]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Deployments", systemImage: "shippingbox.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Design.blue)
+
+            ForEach(runs) { run in
+                WorkflowRow(run: run)
+            }
+        }
+        .padding(14)
+        .background(Design.blue.opacity(0.07))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Design.blue.opacity(0.16), lineWidth: 1)
+        )
     }
 }
 
@@ -264,8 +308,23 @@ private struct WorkflowRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                if let failureDetail {
+                    Text(failureDetail)
+                        .font(.caption)
+                        .foregroundStyle(Design.red)
+                        .lineLimit(1)
+                }
             }
             Spacer()
+            if let pullRequestURL = run?.pullRequests.first?.htmlURL {
+                Button {
+                    NSWorkspace.shared.open(pullRequestURL)
+                } label: {
+                    Image(systemName: "arrow.triangle.pull")
+                }
+                .buttonStyle(.borderless)
+                .help("Open pull request")
+            }
             if let url = run?.htmlURL {
                 Button {
                     NSWorkspace.shared.open(url)
@@ -291,5 +350,10 @@ private struct WorkflowRow: View {
     private var detail: String {
         guard let run else { return "No run loaded yet" }
         return WorkflowRunDisplayFormatter.detail(for: run)
+    }
+
+    private var failureDetail: String? {
+        guard let run else { return nil }
+        return WorkflowRunDisplayFormatter.failureDetail(for: run)
     }
 }

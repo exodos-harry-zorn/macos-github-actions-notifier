@@ -36,6 +36,11 @@ struct WorkflowRun: Codable, Equatable, Identifiable {
     var createdAt: Date
     var updatedAt: Date
     var triggeredBy: String?
+    var event: String?
+    var pullRequests: [WorkflowPullRequest]
+    var failurePreview: WorkflowFailurePreview?
+    var durationSeconds: TimeInterval?
+    var isDeployment: Bool
 
     var effectiveState: WorkflowEffectiveState {
         switch status {
@@ -52,6 +57,27 @@ struct WorkflowRun: Codable, Equatable, Identifiable {
         case .unknown:
             return .problem
         }
+    }
+}
+
+struct WorkflowPullRequest: Codable, Equatable, Identifiable {
+    var number: Int
+    var htmlURL: URL?
+    var title: String?
+
+    var id: Int { number }
+}
+
+struct WorkflowFailurePreview: Codable, Equatable {
+    var jobName: String
+    var stepName: String?
+    var htmlURL: URL?
+
+    var displayText: String {
+        if let stepName, !stepName.isEmpty {
+            return "\(jobName) / \(stepName)"
+        }
+        return jobName
     }
 }
 

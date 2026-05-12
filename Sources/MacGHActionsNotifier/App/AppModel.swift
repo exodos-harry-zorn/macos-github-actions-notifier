@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Observation
+import UniformTypeIdentifiers
 
 @MainActor
 @Observable
@@ -20,8 +21,13 @@ final class AppModel {
     var isAuthenticated = false
     var deviceFlow: DeviceFlowSession?
     var availableRepositories: [GitHubRepository] = []
+    var availableOrganizations: [GitHubOrganization] = []
+    var currentUserLogin: String?
     var isLoadingRepositories = false
     var repositoryLoadMessage: String?
+    var lastRefreshDate: Date?
+    var lastRateLimit: GitHubRateLimit?
+    var configurationMessage: String?
     var onStatusChanged: ((AppStatus) -> Void)?
     var onWorkflowEvent: ((AppStatus) -> Void)?
     var softwareUpdateState: SoftwareUpdateState = .idle
@@ -44,12 +50,20 @@ final class AppModel {
         apiClient = GitHubAPIClient(tokenProvider: keychainStore)
         notificationService = NotificationService()
         monitor = WorkflowMonitor(apiClient: apiClient, notificationService: notificationService)
+        notificationService.onMuteRepository = { [weak self] repository in
+            await MainActor.run {
+                self?.muteRepository(fullName: repository, duration: 3_600)
+            }
+        }
     }
 
     func start() {
         Task {
             await notificationService.requestAuthorizationIfNeeded()
             isAuthenticated = (try? keychainStore.readToken()) != nil
+            if isAuthenticated {
+                await loadAuthenticatedContext()
+            }
             monitor.start(configuration: configuration) { [weak self] result in
                 await self?.handleMonitorResult(result)
             }
@@ -82,6 +96,8 @@ final class AppModel {
             recentRuns = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.key, $0.runs) })
             lastErrorMessage = nil
             isAuthenticated = (try? keychainStore.readToken()) != nil
+            lastRefreshDate = Date()
+            lastRateLimit = apiClient.lastRateLimit
             if let eventStatus = monitor.consumeLastEventStatus() {
                 onWorkflowEvent?(eventStatus)
             }
@@ -105,6 +121,7 @@ final class AppModel {
         }
         configuration = normalized
         configurationStore.save(configuration)
+        monitor.updateCurrentUserLogin(currentUserLogin)
         monitor.start(configuration: configuration) { [weak self] result in
             await self?.handleMonitorResult(result)
         }
@@ -136,6 +153,7 @@ final class AppModel {
             deviceFlow = nil
             isAuthenticated = true
             lastErrorMessage = nil
+            await loadAuthenticatedContext()
             if !configuration.defaultOwner.isEmpty {
                 await loadAvailableRepositories(owner: configuration.defaultOwner)
             }
@@ -149,6 +167,8 @@ final class AppModel {
         do {
             try keychainStore.deleteToken()
             isAuthenticated = false
+            currentUserLogin = nil
+            availableOrganizations = []
             latestRuns = [:]
             recentRuns = [:]
             lastErrorMessage = nil
@@ -190,6 +210,25 @@ final class AppModel {
         softwareUpdateSettings = settings
     }
 
+    func loadAuthenticatedContext() async {
+        do {
+            currentUserLogin = try await apiClient.authenticatedUserLogin()
+            monitor.updateCurrentUserLogin(currentUserLogin)
+            availableOrganizations = (try? await apiClient.organizations()) ?? []
+            if configuration.defaultOwner.isEmpty, let currentUserLogin {
+                var updated = configuration
+                updated.defaultOwner = currentUserLogin
+                configuration = updated.normalized()
+                configurationStore.save(configuration)
+            }
+            if let owner = configuration.defaultOwner.isEmpty ? currentUserLogin : configuration.defaultOwner {
+                await loadAvailableRepositories(owner: owner)
+            }
+        } catch {
+            lastErrorMessage = ErrorPresenter.message(for: error)
+        }
+    }
+
     func loadAvailableRepositories(owner: String) async {
         let cleanOwner = owner.trimmingCharacters(in: .whitespacesAndNewlines)
         guard isAuthenticated else {
@@ -207,10 +246,100 @@ final class AppModel {
 
         do {
             availableRepositories = try await apiClient.repositories(owner: cleanOwner)
+            lastRateLimit = apiClient.lastRateLimit
             repositoryLoadMessage = availableRepositories.isEmpty ? "No repositories found for \(cleanOwner)." : nil
         } catch {
             repositoryLoadMessage = ErrorPresenter.message(for: error)
         }
+    }
+
+    func refreshRateLimit() async {
+        do {
+            lastRateLimit = try await apiClient.rateLimit()
+        } catch {
+            lastErrorMessage = ErrorPresenter.message(for: error)
+        }
+    }
+
+    func muteRepository(fullName: String, duration: TimeInterval) {
+        let parts = fullName.split(separator: "/", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return }
+        var next = configuration
+        next.monitoredRepositories = next.monitoredRepositories.map { repository in
+            guard repository.owner == parts[0], repository.name == parts[1] else { return repository }
+            var copy = repository
+            copy.mutedUntil = Date().addingTimeInterval(duration)
+            return copy
+        }
+        saveConfiguration(next)
+    }
+
+    func unmuteRepository(_ repository: MonitoredRepository) {
+        var next = configuration
+        next.monitoredRepositories = next.monitoredRepositories.map {
+            guard $0.id == repository.id else { return $0 }
+            var copy = $0
+            copy.mutedUntil = nil
+            return copy
+        }
+        saveConfiguration(next)
+    }
+
+    func sendTestNotification() {
+        Task { await notificationService.deliverTestNotification() }
+    }
+
+    func exportConfiguration() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "GitHub-Actions-Notifier-Config.json"
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let data = try JSONEncoder.prettyPrinted.encode(configuration.sanitizedForPersistence())
+            try data.write(to: url, options: [.atomic])
+            configurationMessage = "Configuration exported without secrets."
+        } catch {
+            configurationMessage = ErrorPresenter.message(for: error)
+        }
+    }
+
+    func importConfiguration() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let data = try Data(contentsOf: url)
+            var imported = try JSONDecoder().decode(AppConfiguration.self, from: data).normalized()
+            imported.githubClientID = configuration.githubClientID
+            saveConfiguration(imported)
+            configurationMessage = "Configuration imported. Secrets were not changed."
+        } catch {
+            configurationMessage = ErrorPresenter.message(for: error)
+        }
+    }
+
+    func copyDebugReport() {
+        let report = debugReport()
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(report, forType: .string)
+        configurationMessage = "Debug report copied without secrets."
+    }
+
+    func debugReport() -> String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        let repositories = configuration.monitoredRepositories.map(\.fullName).joined(separator: ", ")
+        return """
+        GitHub Actions Notifier Debug Report
+        Version: \(version)
+        Authenticated: \(isAuthenticated)
+        Current user: \(currentUserLogin ?? "unknown")
+        Monitored repositories: \(repositories.isEmpty ? "none" : repositories)
+        Last refresh: \(lastRefreshDate.map(String.init(describing:)) ?? "never")
+        Rate limit: \(lastRateLimit?.displayText ?? "unknown")
+        Update state: \(softwareUpdateState.bannerTitle ?? "quiet")
+        Last error: \(lastErrorMessage ?? "none")
+        """
     }
 
     private func handleMonitorResult(_ result: WorkflowMonitorResult) async {
@@ -220,6 +349,8 @@ final class AppModel {
         }
         lastErrorMessage = result.errorMessage
         isAuthenticated = (try? keychainStore.readToken()) != nil
+        lastRefreshDate = Date()
+        lastRateLimit = apiClient.lastRateLimit
         if let eventStatus = result.eventStatus {
             onWorkflowEvent?(eventStatus)
         }
@@ -243,5 +374,13 @@ final class AppModel {
             configurationStore.save(loaded)
         }
         return loaded
+    }
+}
+
+private extension JSONEncoder {
+    static var prettyPrinted: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return encoder
     }
 }

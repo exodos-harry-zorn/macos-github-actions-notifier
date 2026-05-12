@@ -1,9 +1,20 @@
 import Foundation
 
 struct WorkflowNotification: Equatable {
+    var id: UUID = UUID()
     var title: String
     var body: String
     var url: URL
+    var repositoryFullName: String
+    var workflowName: String
+    var kind: WorkflowNotificationKind
+}
+
+enum WorkflowNotificationKind: String, Equatable {
+    case started
+    case succeeded
+    case failed
+    case cancelled
 }
 
 enum NotificationDecider {
@@ -60,29 +71,57 @@ enum NotificationDecider {
         case .running where preferences.notifyOnStarted:
             return WorkflowNotification(
                 title: "Workflow started",
-                body: "\(repositoryFullName) - \(current.name) #\(current.runNumber) is running on \(current.branch).",
-                url: current.htmlURL
+                body: notificationBody(for: current, repositoryFullName: repositoryFullName, action: "is running"),
+                url: current.htmlURL,
+                repositoryFullName: repositoryFullName,
+                workflowName: current.name,
+                kind: .started
             )
         case .succeeded where preferences.notifyOnSucceeded:
             return WorkflowNotification(
                 title: "Workflow succeeded",
-                body: "\(repositoryFullName) - \(current.name) #\(current.runNumber) completed successfully.",
-                url: current.htmlURL
+                body: notificationBody(for: current, repositoryFullName: repositoryFullName, action: "completed successfully"),
+                url: current.htmlURL,
+                repositoryFullName: repositoryFullName,
+                workflowName: current.name,
+                kind: .succeeded
             )
         case .failed where preferences.notifyOnFailed:
             return WorkflowNotification(
                 title: "Workflow failed",
-                body: "\(repositoryFullName) - \(current.name) #\(current.runNumber) failed.",
-                url: current.htmlURL
+                body: notificationBody(for: current, repositoryFullName: repositoryFullName, action: "failed"),
+                url: current.failurePreview?.htmlURL ?? current.htmlURL,
+                repositoryFullName: repositoryFullName,
+                workflowName: current.name,
+                kind: .failed
             )
         case .cancelled where preferences.notifyOnCancelled:
             return WorkflowNotification(
                 title: "Workflow cancelled",
-                body: "\(repositoryFullName) - \(current.name) #\(current.runNumber) was cancelled.",
-                url: current.htmlURL
+                body: notificationBody(for: current, repositoryFullName: repositoryFullName, action: "was cancelled"),
+                url: current.htmlURL,
+                repositoryFullName: repositoryFullName,
+                workflowName: current.name,
+                kind: .cancelled
             )
         default:
             return nil
         }
+    }
+
+    private static func notificationBody(for run: WorkflowRun, repositoryFullName: String, action: String) -> String {
+        var body = "\(repositoryFullName) - \(run.name) #\(run.runNumber) \(action)"
+        if let triggeredBy = run.triggeredBy {
+            body += " by \(triggeredBy)"
+        }
+        if !run.branch.isEmpty {
+            body += " on \(run.branch)"
+        }
+        if let failurePreview = run.failurePreview, run.effectiveState == .failed {
+            body += ". Failed at \(failurePreview.displayText)"
+        } else {
+            body += "."
+        }
+        return body
     }
 }

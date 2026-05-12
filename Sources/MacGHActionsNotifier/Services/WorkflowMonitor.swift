@@ -14,6 +14,7 @@ final class WorkflowMonitor: @unchecked Sendable {
     private var previousRuns: [RepositoryWorkflowKey: WorkflowRun] = [:]
     private var previousRunStates: [String: WorkflowRun] = [:]
     private var primedRepositories: Set<RepositoryWorkflowKey> = []
+    private var currentUserLogin: String?
 
     init(apiClient: GitHubAPIClient, notificationService: NotificationService) {
         self.apiClient = apiClient
@@ -59,13 +60,24 @@ final class WorkflowMonitor: @unchecked Sendable {
         task = nil
     }
 
+    func updateCurrentUserLogin(_ login: String?) {
+        currentUserLogin = login
+    }
+
     func refresh(configuration: AppConfiguration) async throws -> [WorkflowSnapshot] {
         let normalized = configuration.normalized()
         var snapshots: [WorkflowSnapshot] = []
+        var notifications: [WorkflowNotification] = []
         lastEventStatus = nil
 
         for repository in normalized.monitoredRepositories {
             let runs = try await apiClient.recentRuns(owner: repository.owner, repository: repository.name, limit: normalized.recentRunsPerRepository)
+                .filter { BranchMatcher.matches(branch: $0.branch, patterns: repository.branchFilters) }
+                .map { run in
+                    var copy = run
+                    copy.isDeployment = DeploymentClassifier.isDeployment(run: copy, repository: repository)
+                    return copy
+                }
             let repositoryKey = RepositoryWorkflowKey.repository(owner: repository.owner, repository: repository.name)
             let repositoryWasPrimed = primedRepositories.contains(repositoryKey)
             if let latestRun = runs.first {
@@ -75,19 +87,30 @@ final class WorkflowMonitor: @unchecked Sendable {
 
             for run in runs.reversed() {
                 let runKey = "\(repository.fullName)#\(run.id)"
-                if let notification = NotificationDecider.notification(
+                if NotificationPolicy.shouldNotify(
+                    run: run,
+                    repository: repository,
+                    preferences: normalized.notificationPreferences,
+                    currentUserLogin: currentUserLogin,
+                    now: Date()
+                ), let notification = NotificationDecider.notification(
                     previous: previousRunStates[runKey],
                     current: run,
                     repositoryWasPrimed: repositoryWasPrimed,
                     repositoryFullName: repository.fullName,
                     preferences: normalized.notificationPreferences
                 ) {
-                    await notificationService.deliver(notification)
-                    lastEventStatus = AppStatus.workflowEventStatus(for: run.effectiveState)
+                    notifications.append(notification)
                 }
                 previousRunStates[runKey] = run
             }
             primedRepositories.insert(repositoryKey)
+        }
+
+        let deliverable = NotificationGrouper.grouped(notifications, groupFailures: normalized.notificationPreferences.groupFailures)
+        for notification in deliverable {
+            await notificationService.deliver(notification)
+            lastEventStatus = AppStatus.workflowEventStatus(for: notification.kind)
         }
 
         return snapshots

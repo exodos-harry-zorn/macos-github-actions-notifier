@@ -6,12 +6,13 @@
 - `StatusBarController` owns the `NSStatusItem`, renders status icons, and hosts the SwiftUI popover.
 - `AppModel` coordinates configuration, authentication, polling, notification state, and UI state.
 - `PopoverView` and `SettingsView` provide the compact monitoring surface and onboarding/settings experience.
-- `WorkflowMonitor` polls configured repositories and compares recent Actions runs against previous snapshots.
-- `GitHubAPIClient` lists repositories and calls GitHub's repository workflow-runs REST endpoint.
+- `WorkflowMonitor` polls configured repositories, applies branch/deployment/notification policy, and compares recent Actions runs against previous snapshots.
+- `GitHubAPIClient` lists users, organizations, repositories, workflow runs, failed workflow jobs, and GitHub rate-limit state through the REST API.
 - `GitHubDeviceAuthenticator` implements OAuth device flow.
 - `SparkleUpdateController` wraps Sparkle's `SPUStandardUpdaterController` and reports update availability into `AppModel`.
 - `KeychainTokenStore` stores the GitHub access token and OAuth Client ID.
 - `UserDefaultsConfigurationStore` persists non-secret app configuration.
+- `MonitoringPolicy`, `NotificationPolicy`, and `NotificationGrouper` keep filtering and notification decisions separate from UI code.
 
 ## Auth Flow
 
@@ -34,8 +35,10 @@ Configuration:
 
 - Monitored repositories, notification preferences, polling interval, and display preferences are stored as JSON in UserDefaults.
 - Recent run display count is stored in UserDefaults and defaults to 5.
+- Branch filters, deployment workflow patterns, repository mute windows, quiet hours, failure grouping, and "only my runs" preferences are stored as non-secret configuration.
 - Polling interval is clamped to 60-900 seconds.
 - Sparkle stores its own update preferences in the app's standard user defaults keys, as recommended by Sparkle. The app does not duplicate those settings in `AppConfiguration`.
+- Configuration export/import uses the same non-secret `AppConfiguration` shape. Export removes the OAuth Client ID, and import preserves the existing Keychain-backed OAuth Client ID and token.
 
 ## App Updates
 
@@ -66,19 +69,37 @@ For each configured repository, the monitor calls:
 GET /repos/{owner}/{repo}/actions/runs?per_page=20
 ```
 
+When a failed or cancelled run is visible, the client also fetches workflow jobs to build a compact failure preview:
+
+```text
+GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs?per_page=100
+```
+
+For onboarding and diagnostics, the client calls:
+
+```text
+GET /user
+GET /user/orgs
+GET /rate_limit
+```
+
 The app sends:
 
 - `Authorization: Bearer <token>`
 - `Accept: application/vnd.github+json`
 - `X-GitHub-Api-Version: 2022-11-28`
 
-Errors are converted into user-facing status messages. `401` asks the user to sign in again, `403` distinguishes rate limits when possible, and `404` points to account or repository configuration issues.
+Errors are converted into user-facing status messages. `401` asks the user to sign in again, `403` distinguishes rate limits when possible, and `404` points to account or repository configuration issues. The latest `X-RateLimit-*` headers and `/rate_limit` response are exposed in diagnostics.
 
 ## Notification Logic
 
 The monitor keeps recent displayed runs for each repository and a previous-state snapshot for recent workflow run IDs. A notification is emitted only when a run appears or changes state after the repository has already been observed once. The menu bar shows the event status for 5 minutes, keeps running status visible while a run is active, then returns to the app logo with an unread red dot until the user opens the popover.
 
 Recent run rows include the GitHub user that triggered the workflow. The API mapping prefers `triggering_actor.login`, which reflects the user that triggered or re-ran the workflow, and falls back to `actor.login` when `triggering_actor` is unavailable.
+
+Notification policy suppresses runs during quiet hours, while a repository mute is active, when branch filters do not match, or when "only my runs" is enabled and the trigger user does not match the authenticated GitHub login. Multiple failures in the same repository can be grouped into one notification. Notification actions support opening the run and muting that repository for one hour.
+
+Deployment mode is repository-scoped. Users provide case-insensitive wildcard patterns, such as `*Deploy*`, which are matched against the workflow run name and display title. Matching runs are marked as deployment activity in the popover.
 
 Effective states are:
 

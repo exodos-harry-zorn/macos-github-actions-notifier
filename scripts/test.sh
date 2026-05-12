@@ -14,6 +14,8 @@ swiftc \
   Sources/MacGHActionsNotifier/Services/GitHubAPIClient.swift \
   Sources/MacGHActionsNotifier/Services/StatusAggregator.swift \
   Sources/MacGHActionsNotifier/Services/NotificationDecider.swift \
+  Sources/MacGHActionsNotifier/Support/MonitoringPolicy.swift \
+  Sources/MacGHActionsNotifier/Support/NotificationGrouper.swift \
   Sources/MacGHActionsNotifier/Support/SoftwareUpdateState.swift \
   Sources/MacGHActionsNotifier/Support/TimestampFormatter.swift \
   Sources/MacGHActionsNotifier/Support/WorkflowStateLabels.swift \

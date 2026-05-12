@@ -40,6 +40,8 @@ struct SettingsView: View {
                     notificationsSection
                     pollingSection
                     updatesSection
+                    diagnosticsSection
+                    configurationSection
                     securitySection
                 }
                 .padding(24)
@@ -54,6 +56,9 @@ struct SettingsView: View {
                 .textFieldStyle(.roundedBorder)
             TextField("Default account or organization", text: $draft.defaultOwner)
                 .textFieldStyle(.roundedBorder)
+            if model.isAuthenticated {
+                ownerSuggestions
+            }
             Toggle("Request private repository access (`repo` scope)", isOn: $privateRepoAccess)
             HStack {
                 Button {
@@ -89,6 +94,30 @@ struct SettingsView: View {
             if let error = model.lastErrorMessage {
                 Text(error)
                     .foregroundStyle(Design.orange)
+            }
+        }
+    }
+
+    private var ownerSuggestions: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Detected accounts")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            HStack {
+                if let login = model.currentUserLogin {
+                    Button(login) {
+                        draft.defaultOwner = login
+                        Task { await model.loadAvailableRepositories(owner: login) }
+                    }
+                    .buttonStyle(.bordered)
+                }
+                ForEach(model.availableOrganizations.prefix(4)) { organization in
+                    Button(organization.login) {
+                        draft.defaultOwner = organization.login
+                        Task { await model.loadAvailableRepositories(owner: organization.login) }
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
         }
     }
@@ -137,10 +166,16 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             } else {
                 VStack(spacing: 8) {
-                    ForEach(draft.monitoredRepositories) { repository in
-                        SelectedRepositoryRow(repository: repository) {
-                            draft.monitoredRepositories.removeAll { $0.id == repository.id }
-                        }
+                    ForEach($draft.monitoredRepositories) { $repository in
+                        SelectedRepositoryRow(
+                            repository: $repository,
+                            onDelete: {
+                                draft.monitoredRepositories.removeAll { $0.id == repository.id }
+                            },
+                            onUnmute: {
+                                repository.mutedUntil = nil
+                            }
+                        )
                     }
                 }
             }
@@ -153,6 +188,81 @@ struct SettingsView: View {
             Toggle("Workflow succeeded", isOn: $draft.notificationPreferences.notifyOnSucceeded)
             Toggle("Workflow failed", isOn: $draft.notificationPreferences.notifyOnFailed)
             Toggle("Workflow cancelled", isOn: $draft.notificationPreferences.notifyOnCancelled)
+            Toggle("Group multiple failures by repository", isOn: $draft.notificationPreferences.groupFailures)
+            Toggle("Only notify me about runs I triggered", isOn: $draft.notificationPreferences.notifyOnlyForCurrentUser)
+            Toggle("Quiet hours", isOn: $draft.notificationPreferences.quietHoursEnabled)
+            if draft.notificationPreferences.quietHoursEnabled {
+                HStack {
+                    Stepper(value: $draft.notificationPreferences.quietHoursStartHour, in: 0...23, step: 1) {
+                        Text("Start \(draft.notificationPreferences.quietHoursStartHour):00")
+                    }
+                    Stepper(value: $draft.notificationPreferences.quietHoursEndHour, in: 0...23, step: 1) {
+                        Text("End \(draft.notificationPreferences.quietHoursEndHour):00")
+                    }
+                }
+            }
+            Button {
+                model.sendTestNotification()
+            } label: {
+                Label("Test Notification", systemImage: "bell.badge")
+            }
+        }
+    }
+
+    private var diagnosticsSection: some View {
+        SettingsSection(title: "About & Diagnostics", systemImage: "info.circle") {
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
+                diagnosticRow("Version", appVersion)
+                diagnosticRow("User", model.currentUserLogin ?? "Not signed in")
+                diagnosticRow("Last refresh", model.lastRefreshDate.map { TimestampFormatter.compact($0) } ?? "Never")
+                diagnosticRow("Rate limit", model.lastRateLimit?.displayText ?? "Unknown")
+                diagnosticRow("Updater", model.softwareUpdateState.bannerTitle ?? "Quiet")
+            }
+            HStack {
+                Button {
+                    Task { await model.refreshRateLimit() }
+                } label: {
+                    Label("Refresh Rate Limit", systemImage: "gauge.with.dots.needle.67percent")
+                }
+                Button {
+                    model.copyDebugReport()
+                } label: {
+                    Label("Copy Debug Report", systemImage: "doc.on.doc")
+                }
+            }
+        }
+    }
+
+    private func diagnosticRow(_ title: String, _ value: String) -> some View {
+        GridRow {
+            Text(title)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .textSelection(.enabled)
+        }
+    }
+
+    private var configurationSection: some View {
+        SettingsSection(title: "Configuration", systemImage: "square.and.arrow.up") {
+            HStack {
+                Button {
+                    model.exportConfiguration()
+                } label: {
+                    Label("Export Config", systemImage: "square.and.arrow.up")
+                }
+                Button {
+                    model.importConfiguration()
+                    draft = model.configuration
+                } label: {
+                    Label("Import Config", systemImage: "square.and.arrow.down")
+                }
+            }
+            Text("Export and debug reports never include GitHub tokens or the OAuth Client ID.")
+                .foregroundStyle(.secondary)
+            if let message = model.configurationMessage {
+                Text(message)
+                    .foregroundStyle(Design.green)
+            }
         }
     }
 
@@ -245,34 +355,74 @@ struct SettingsView: View {
         draft.monitoredRepositories.append(MonitoredRepository(owner: parts[0], name: parts[1], workflows: []))
         self.selectedRepositoryID = nil
     }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+    }
 }
 
 private struct SelectedRepositoryRow: View {
-    var repository: MonitoredRepository
+    @Binding var repository: MonitoredRepository
     var onDelete: () -> Void
+    var onUnmute: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "shippingbox")
-                .foregroundStyle(Design.green)
-            Text(repository.fullName)
-                .font(.subheadline.weight(.medium))
-            Spacer()
-            Text("All Actions")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Design.blue)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .background(Design.blue.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-            Button(role: .destructive, action: onDelete) {
-                Image(systemName: "trash")
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: "shippingbox")
+                    .foregroundStyle(Design.green)
+                Text(repository.fullName)
+                    .font(.subheadline.weight(.medium))
+                Spacer()
+                Text("All Actions")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Design.blue)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Design.blue.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                Button(role: .destructive, action: onDelete) {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
             }
-            .buttonStyle(.borderless)
+            HStack {
+                TextField("Branches, e.g. main, release/*", text: branchFiltersText)
+                    .textFieldStyle(.roundedBorder)
+                TextField("Deploy workflows, e.g. *Deploy*", text: deploymentPatternsText)
+                    .textFieldStyle(.roundedBorder)
+            }
+            if let mutedUntil = repository.mutedUntil, mutedUntil > Date() {
+                HStack {
+                    Label("Muted until \(TimestampFormatter.compact(mutedUntil))", systemImage: "bell.slash")
+                        .foregroundStyle(.secondary)
+                    Button("Unmute", action: onUnmute)
+                }
+            }
         }
         .padding(10)
         .background(Design.card)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var branchFiltersText: Binding<String> {
+        Binding {
+            repository.branchFilters.joined(separator: ", ")
+        } set: { value in
+            repository.branchFilters = splitList(value)
+        }
+    }
+
+    private var deploymentPatternsText: Binding<String> {
+        Binding {
+            repository.deploymentWorkflowPatterns.joined(separator: ", ")
+        } set: { value in
+            repository.deploymentWorkflowPatterns = splitList(value)
+        }
+    }
+
+    private func splitList(_ value: String) -> [String] {
+        value.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
     }
 }
 

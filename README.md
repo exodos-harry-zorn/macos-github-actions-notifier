@@ -13,9 +13,12 @@ The app is built with Swift, SwiftUI, and AppKit menu bar integration. It stores
 - GitHub OAuth device flow authentication for native-app friendly sign-in.
 - Keychain-backed token storage.
 - Configurable repositories, notification preferences, and polling interval.
-- Expandable repository cards show recent workflow runs, who triggered them, and direct GitHub links, with 5 runs shown by default.
+- Expandable repository cards show recent workflow runs, who triggered them, pull request context, duration, timestamps, failure previews, and direct GitHub links, with 5 runs shown by default.
 - Native macOS notifications only for workflow start, success, failure, or cancellation changes.
+- Notification actions let you open the run or mute a noisy repository for an hour.
+- Branch filters, deployment workflow highlighting, quiet hours, grouped failures, and "only my runs" notification mode.
 - GitHub REST API workflow polling with API error and rate-limit handling.
+- About and diagnostics view with version, last poll time, GitHub API budget, updater status, config export/import, and a secret-free debug report.
 - Sparkle-powered automatic app updates from signed GitHub release appcasts.
 
 ## Requirements
@@ -92,18 +95,20 @@ GitHub tokens and the OAuth Client ID are stored only in macOS Keychain under `c
 Open settings from the menu bar popover:
 
 1. Sign in with GitHub.
-2. Enter the GitHub account or organization, for example `exodos-labs`.
+2. Pick your user account or one of the detected organizations, or enter another GitHub account or organization.
 3. Click **Load repositories**.
 4. Choose a repository from the dropdown.
 5. Click **Monitor selected repository**.
 6. Repeat for every repository you want to watch.
-7. Choose notification preferences.
-8. Choose a polling interval between 60 and 900 seconds.
-9. Click **Done**.
+7. Optionally add branch filters, for example `main, release/*`.
+8. Optionally add deployment workflow patterns, for example `*Deploy*, *Production*`.
+9. Choose notification preferences.
+10. Choose a polling interval between 60 and 900 seconds.
+11. Click **Done**.
 
 Each selected repository monitors all GitHub Actions workflow runs. You do not need to configure `ci.yml` files or individual workflows.
 
-Repository cards in the menu bar popover can be expanded to show recent Actions runs, the GitHub user that triggered each run, and direct GitHub links. Settings let you choose how many recent runs to show per repository; the default is 5.
+Repository cards in the menu bar popover can be expanded to show recent Actions runs, the GitHub user that triggered each run, pull request context when GitHub provides it, timestamps, run duration, failure previews, and direct GitHub links. Settings let you choose how many recent runs to show per repository; the default is 5.
 
 ## Menu Bar Status
 
@@ -119,6 +124,24 @@ The app compares each latest workflow run against the previous snapshot. It send
 - A run is cancelled.
 
 Repeated polling of the same unchanged run does not notify.
+
+Quiet hours suppress notifications during the configured local time window. Repository muting suppresses notifications for that repository until the mute expires. "Only notify me about runs I triggered" uses GitHub's `triggering_actor.login` when available and falls back to `actor.login`.
+
+If several failures arrive for the same repository in one poll, the app can group them into one calmer notification. Failed notifications try to deep-link to the failed job when GitHub returns job information.
+
+Use **Test Notification** in settings to verify macOS notification permissions and styling without waiting for a real workflow event.
+
+## Diagnostics and Configuration
+
+Open **Settings -> About & Diagnostics** to see:
+
+- App version.
+- Signed-in GitHub user.
+- Last poll time.
+- GitHub API rate-limit budget.
+- Sparkle updater status.
+
+Use **Copy Debug Report** when troubleshooting. The report excludes GitHub tokens and the OAuth Client ID. Use **Export Config** and **Import Config** to move repository, branch, deployment, polling, and notification settings between Macs; secrets are never exported or overwritten by import.
 
 ## Build and Run
 
@@ -185,4 +208,6 @@ Apache-2.0 is a permissive license: you can use, modify, distribute, and build o
 
 - [GitHub OAuth App authorization and device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps)
 - [GitHub Actions workflow runs REST API](https://docs.github.com/v3/actions/workflow-runs/)
+- [GitHub Actions workflow jobs REST API](https://docs.github.com/en/rest/actions/workflow-jobs)
+- [GitHub REST rate limit API](https://docs.github.com/en/rest/rate-limit/rate-limit)
 - [Sparkle 2 documentation](https://sparkle-project.org/documentation/)

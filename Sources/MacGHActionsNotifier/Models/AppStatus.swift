@@ -54,4 +54,12 @@ enum AppStatus: String, Codable, Equatable {
         case .problem: .problem
         }
     }
+
+    static func workflowEventStatus(for kind: WorkflowNotificationKind) -> AppStatus {
+        switch kind {
+        case .started: .running
+        case .succeeded: .success
+        case .failed, .cancelled: .failed
+        }
+    }
 }
