@@ -6,6 +6,22 @@ enum WorkflowRunDisplayFormatter {
     }
 
     static func metadata(for run: WorkflowRun, now: Date = Date()) -> String {
+        metadata(for: run, now: now, includesTriggeredBy: true)
+    }
+
+    static func rowMetadata(for run: WorkflowRun, now: Date = Date()) -> String {
+        metadata(for: run, now: now, includesTriggeredBy: false)
+    }
+
+    static func triggeredByText(for run: WorkflowRun) -> String? {
+        guard let triggeredBy = run.triggeredBy?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !triggeredBy.isEmpty else {
+            return nil
+        }
+        return triggeredBy
+    }
+
+    private static func metadata(for run: WorkflowRun, now: Date, includesTriggeredBy: Bool) -> String {
         var parts = [
             "#\(run.runNumber) \(run.effectiveState.label)",
             run.branch
@@ -14,8 +30,7 @@ enum WorkflowRunDisplayFormatter {
             let title = pullRequest.title.map { " \($0)" } ?? ""
             parts.append("PR #\(pullRequest.number)\(title)")
         }
-        if let triggeredBy = run.triggeredBy?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !triggeredBy.isEmpty {
+        if includesTriggeredBy, let triggeredBy = triggeredByText(for: run) {
             parts.append("by \(triggeredBy)")
         }
         if let duration = durationText(for: run, now: now) {

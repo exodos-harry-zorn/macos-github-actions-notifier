@@ -275,7 +275,7 @@ private struct RepositoryCard: View {
                 }
                 if let latestRun {
                     HStack(spacing: 8) {
-                        Text("\(latestRun.name) \(WorkflowRunDisplayFormatter.metadata(for: latestRun))")
+                        Text("\(latestRun.name) \(WorkflowRunDisplayFormatter.rowMetadata(for: latestRun))")
                             .lineLimit(1)
                         Spacer(minLength: 4)
                         Text(WorkflowRunDisplayFormatter.finishedText(for: latestRun))
@@ -284,6 +284,9 @@ private struct RepositoryCard: View {
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    if let triggeredBy = WorkflowRunDisplayFormatter.triggeredByText(for: latestRun) {
+                        TriggeredByLabel(userName: triggeredBy)
+                    }
                 } else {
                     Text("No run loaded yet")
                         .font(.caption)
@@ -327,6 +330,9 @@ private struct WorkflowRow: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                if let triggeredBy {
+                    TriggeredByLabel(userName: triggeredBy)
+                }
                 if let failureDetail {
                     Text(failureDetail)
                         .font(.caption)
@@ -368,7 +374,7 @@ private struct WorkflowRow: View {
 
     private var metadata: String {
         guard let run else { return "No run loaded yet" }
-        return WorkflowRunDisplayFormatter.metadata(for: run)
+        return WorkflowRunDisplayFormatter.rowMetadata(for: run)
     }
 
     private var finishedText: String {
@@ -376,8 +382,31 @@ private struct WorkflowRow: View {
         return WorkflowRunDisplayFormatter.finishedText(for: run)
     }
 
+    private var triggeredBy: String? {
+        guard let run else { return nil }
+        return WorkflowRunDisplayFormatter.triggeredByText(for: run)
+    }
+
     private var failureDetail: String? {
         guard let run else { return nil }
         return WorkflowRunDisplayFormatter.failureDetail(for: run)
+    }
+}
+
+private struct TriggeredByLabel: View {
+    var userName: String
+
+    var body: some View {
+        Label {
+            Text(userName)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+        } icon: {
+            Image(systemName: "person.crop.circle")
+        }
+        .font(.caption.weight(.medium))
+        .foregroundStyle(.primary)
+        .help("Triggered by \(userName)")
     }
 }
